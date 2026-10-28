@@ -1,0 +1,540 @@
+@startuml
+title I-ITSM Architecture & Class Diagram (Phases 1, 2, 3, & 4)
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam roundcorner 8
+
+package "com.iitsm.domain.model" {
+
+    abstract class User {
+        - id: String
+        - name: String
+        - email: Email
+        - passwordHash: String
+        - role: UserRole
+        - active: boolean
+        - failedLoginAttempts: int
+        - locked: boolean
+        + recordFailedLogin(maxAllowed: int): void
+        + resetFailedLogins(): void
+    }
+
+    class Employee {
+        - designation: Designation
+        - department: String
+        - seniorityYears: int
+    }
+
+    class Technician {
+        - skills: Set<Skill>
+        - experienceYears: int
+        - maxCapacity: int
+        - availabilityStatus: AvailabilityStatus
+        - supportTeamId: String
+        - activeIncidentIds: Set<String>
+        + assignIncident(incidentId: String): void
+        + releaseIncident(incidentId: String): void
+        + isAvailableForAssignment(): boolean
+        + getLoadRatio(): double
+    }
+
+    class TeamLead {
+    }
+
+    class Administrator {
+        - adminLevel: AdminLevel
+        + isSystemAdmin(): boolean
+        + isItManager(): boolean
+    }
+
+    User <|-- Employee
+    User <|-- Technician
+    Technician <|-- TeamLead
+    User <|-- Administrator
+
+    class Incident <<Aggregate Root>> {
+        - id: String
+        - title: String
+        - description: String
+        - reporterId: String
+        - createdAt: Instant
+        - category: IncidentCategory
+        - serviceId: String
+        - priorityDecision: PriorityDecision
+        - status: IncidentStatus
+        - assigneeId: String
+        - reopenCount: int
+        - linkedIncidentIds: Set<String>
+        - version: Long
+        + classify(...): void
+        + assign(...): void
+        + acknowledge(...): void
+        + startInvestigation(...): void
+        + requestInfo(...): void
+        + provideInfo(...): void
+        + resolve(...): void
+        + verify(...): void
+        + reject(...): void
+        + close(...): void
+        + flagWrongDomain(...): void
+        + getAllowedActions(): Set<String>
+    }
+
+    class SlaTracker {
+        - createdAt: Instant
+        - responseDueAt: Instant
+        - resolutionDueAt: Instant
+        - respondedAt: Instant
+        - resolvedAt: Instant
+        - pausedDuration: Duration
+        - pausedAt: Instant
+        - status: SlaStatus
+        + recordResponse(now: Instant): void
+        + recordResolution(now: Instant): void
+        + pauseClock(now: Instant): void
+        + resumeClock(now: Instant): void
+        + evaluateStatus(now: Instant): void
+    }
+
+    class SlaPolicy {
+        - id: String
+        - priority: Priority
+        - serviceIdOverride: String
+        - responseTarget: Duration
+        - resolutionTarget: Duration
+        - warningThresholdRatio: double
+    }
+
+    class ItService {
+        - id: String
+        - name: String
+        - owningTeamId: String
+        - businessCriticality: BusinessCriticality
+        - userBase: int
+        - keywords: Set<String>
+        + matchesKeyword(text: String): boolean
+    }
+
+    class SupportTeam {
+        - id: String
+        - name: String
+        - handledCategories: Set<IncidentCategory>
+        - teamLeadId: String
+        - memberIds: Set<String>
+        + addMember(technicianId: String): void
+        + removeMember(technicianId: String): void
+    }
+
+    class IncidentUrgencyOrdering <<Comparator>> {
+        + compare(a: Incident, b: Incident): int
+    }
+
+    Incident *-- SlaTracker : composition
+    Incident --> Employee : reporter
+    Incident --> Technician : assignee
+    Incident --> ItService : affects
+    SupportTeam o-- Technician : aggregation
+}
+
+package "com.iitsm.domain.repository" {
+    interface IncidentRepository <<Port>> {
+        + save(incident: Incident): Incident
+        + findById(id: String): Optional<Incident>
+        + findByReporterId(reporterId: String): List<Incident>
+        + findByAssigneeId(assigneeId: String): List<Incident>
+        + findByStatus(status: IncidentStatus): List<Incident>
+        + countByStatus(status: IncidentStatus): long
+    }
+
+    interface UserRepository <<Port>> {
+        + save(user: User): User
+        + findById(id: String): Optional<User>
+        + findByEmail(email: Email): Optional<User>
+    }
+
+    interface TechnicianRepository <<Port>> {
+        + findAvailableTechnicians(): List<Technician>
+        + findBySupportTeamId(teamId: String): List<Technician>
+    }
+}
+
+package "com.iitsm.application.service" {
+    class IncidentService {
+        - incidentRepository: IncidentRepository
+        - userRepository: UserRepository
+        - technicianRepository: TechnicianRepository
+        - slaPolicyRepository: SlaPolicyRepository
+        - itServiceRepository: ItServiceRepository
+        - eventPublisher: DomainEventPublisher
+        - accessPolicy: AccessPolicy
+        + createIncident(reporter, title, desc): Incident
+        + acknowledge(incidentId, techId): Incident
+        + startInvestigation(incidentId, techId): Incident
+        + addNote(incidentId, authorId, note, internal): void
+        + requestInfo(incidentId, techId, question): Incident
+        + provideInfo(incidentId, reporterId, response): Incident
+        + resolve(incidentId, techId, resolution): Incident
+        + verify(incidentId, reporterId): Incident
+        + reject(incidentId, reporterId, reason): Incident
+        + close(incidentId, actorId, feedback): Incident
+        + assign(incidentId, adminId, techId): Incident
+        + overridePriority(incidentId, adminId, priority, reason): Incident
+    }
+
+    class SearchService {
+        - incidentJpaRepository: SpringDataIncidentRepository
+        - incidentMapper: IncidentMapper
+        + search(criteria, pageable): Page<Incident>
+    }
+
+    class IncidentFactory <<Factory>> {
+        + createIncident(title, description, reporterId): Incident
+    }
+
+    class UserFactory <<Factory>> {
+        + createEmployee(...): Employee
+        + createTechnician(...): Technician
+        + createTeamLead(...): TeamLead
+        + createAdministrator(...): Administrator
+    }
+}
+
+package "com.iitsm.web.controller" {
+    class EmployeeController {
+        - incidentService: IncidentService
+        - searchService: SearchService
+        + createTicket(...): ResponseEntity<EmployeeIncidentView>
+        + getMyTickets(...): ResponseEntity<Page<EmployeeIncidentView>>
+        + provideInfo(...): ResponseEntity<EmployeeIncidentView>
+        + verifyResolution(...): ResponseEntity<EmployeeIncidentView>
+        + rejectResolution(...): ResponseEntity<EmployeeIncidentView>
+    }
+
+    class TechnicianController {
+        - incidentService: IncidentService
+        + getQueue(): ResponseEntity<List<TechnicianIncidentView>>
+        + getDashboard(): ResponseEntity<TechnicianDashboardDto>
+        + acknowledge(...): ResponseEntity<TechnicianIncidentView>
+        + startInvestigation(...): ResponseEntity<TechnicianIncidentView>
+        + requestInfo(...): ResponseEntity<TechnicianIncidentView>
+        + resolve(...): ResponseEntity<TechnicianIncidentView>
+        + flagWrongDomain(...): ResponseEntity<Void>
+    }
+
+    class AdminController {
+        - incidentService: IncidentService
+        - searchService: SearchService
+        + getStats(): ResponseEntity<AdminStatsDto>
+        + searchIncidents(...): ResponseEntity<Page<AdminIncidentView>>
+        + assign(...): ResponseEntity<AdminIncidentView>
+        + overridePriority(...): ResponseEntity<AdminIncidentView>
+        + closeIncident(...): ResponseEntity<AdminIncidentView>
+    }
+
+    class NotificationController {
+        - sseEmitterRegistry: SseEmitterRegistry
+        - notificationRepository: SpringDataNotificationRepository
+        + streamNotifications(...): SseEmitter
+        + getMyNotifications(...): ResponseEntity<List<NotificationJpaEntity>>
+        + markAsRead(id): ResponseEntity<Void>
+    }
+}
+
+package "com.iitsm.web.dto" {
+    class EmployeeIncidentView <<DTO - Strict Privacy>> {
+        - id: String
+        - title: String
+        - description: String
+        - status: String
+        - publicStepperStep: int
+        - auditTrail: List<EmployeeAuditDto>
+    }
+
+    class TechnicianIncidentView <<DTO>> {
+        - id: String
+        - priority: String
+        - status: String
+        - urgencyScore: double
+        - slaDueAt: Instant
+        - notes: List<NoteDto>
+    }
+
+    class AdminIncidentView <<DTO>> {
+        - id: String
+        - priority: String
+        - priorityScore: double
+        - factorContributions: List<FactorDto>
+        - slaTracker: SlaTrackerDto
+        - fullAuditTrail: List<AuditRecordDto>
+    }
+}
+
+package "com.iitsm.infrastructure.notification" {
+    interface NotificationChannel <<Adapter>> {
+        + getChannelName(): String
+        + send(recipient, subject, message): void
+    }
+
+    class InAppChannel implements NotificationChannel {
+        - notificationRepository: SpringDataNotificationRepository
+        - sseEmitterRegistry: SseEmitterRegistry
+    }
+
+    class EmailChannel implements NotificationChannel {
+        - mailSender: JavaMailSender
+    }
+
+    class SmsSimulatorChannel implements NotificationChannel {
+    }
+
+    class NotificationRouter <<Strategy>> {
+        - channels: List<NotificationChannel>
+        + route(payload: NotificationPayload): void
+    }
+
+    class NotificationFactory <<Factory>> {
+        + createNotification(event, recipient): Optional<NotificationPayload>
+    }
+}
+
+package "com.iitsm.infrastructure.observer" {
+    class AuditTrailObserver <<Observer>> {
+        - auditRepository: SpringDataAuditRecordRepository
+        + onEvent(event: DomainEvent): void
+    }
+
+    class NotificationObserver <<Observer>> {
+        - notificationFactory: NotificationFactory
+        - notificationRouter: NotificationRouter
+        + onEvent(event: DomainEvent): void
+    }
+}
+
+package "com.iitsm.domain.strategy.nlp" {
+    class TextNormalizer {
+        + {static} normalize(text: String): String
+        + {static} tokenize(text: String): List<String>
+        + {static} stem(word: String): String
+    }
+
+    class TfIdfVectorizer {
+        - idfMap: Map<String, Double>
+        + train(documents: Collection<String>): void
+        + transform(text: String): Map<String, Double>
+        + cosineSimilarity(u, v): double
+    }
+}
+
+package "com.iitsm.domain.strategy.classification" {
+    interface IncidentClassifier <<Strategy>> {
+        + classify(title: String, description: String): ClassificationResult
+    }
+
+    class KeywordClassifier implements IncidentClassifier {
+    }
+
+    class NaiveBayesClassifier implements IncidentClassifier {
+        - wordCounts: Map<IncidentCategory, Map<String, Integer>>
+        - totalWordsPerClass: Map<IncidentCategory, Integer>
+        + train(corpus: List<TrainingExample>): void
+        + trainFromCsv(is: InputStream): void
+    }
+
+    class CompositeClassifier <<Composite>> implements IncidentClassifier {
+        - keywordClassifier: KeywordClassifier
+        - naiveBayesClassifier: NaiveBayesClassifier
+    }
+
+    class ServiceMatcher {
+        + matchService(text: String, services: Collection<ItService>): Optional<ItService>
+    }
+
+    class ClassificationResult <<Value Object>> {
+        - category: IncidentCategory
+        - confidence: double
+        - classifierName: String
+        - rationale: String
+        - requiresTriage: boolean
+    }
+}
+
+package "com.iitsm.domain.strategy.priority" {
+    interface PriorityFactor <<Strategy>> {
+        + evaluate(incident, reporter, service, context): FactorContribution
+        + getWeight(): double
+        + getName(): String
+    }
+
+    class ServiceCriticalityFactor implements PriorityFactor
+    class ImpactFactor implements PriorityFactor
+    class UrgencyFactor implements PriorityFactor
+    class ReporterDesignationFactor implements PriorityFactor
+    class AgingFactor implements PriorityFactor
+    class ReporterHistoryFactor implements PriorityFactor
+
+    class CompositePriorityCalculator <<Composite>> {
+        - factors: List<PriorityFactor>
+        + calculate(incident, reporter, service, context, now): PriorityDecision
+    }
+
+    class IncidentEvaluationContext <<Value Object>> {
+        - reporterRecentIncidentCount: int
+        - linkedDuplicateCount: int
+        - evaluationTime: Instant
+    }
+}
+
+package "com.iitsm.domain.strategy.assignment" {
+    interface AssignmentStrategy <<Strategy>> {
+        + recommend(incident: Incident, candidates: List<Technician>): AssignmentRecommendation
+        + getName(): String
+    }
+
+    class SkillBasedStrategy implements AssignmentStrategy
+    class LoadBasedStrategy implements AssignmentStrategy
+    class ExperienceBasedStrategy implements AssignmentStrategy
+    class RoundRobinStrategy implements AssignmentStrategy
+    class WeightedCompositeStrategy implements AssignmentStrategy
+
+    class CandidateFilter {
+        + filter(incident, candidates, excludingTechId): List<Technician>
+    }
+
+    class AssignmentStrategyRegistry <<Registry>> {
+        - strategies: Map<String, AssignmentStrategy>
+        - activeStrategyName: String
+        + register(strategy: AssignmentStrategy): void
+        + setActiveStrategy(name: String): void
+        + getActiveStrategy(): AssignmentStrategy
+    }
+
+    class AssignmentRecommendation <<Value Object>> {
+        - technician: Technician
+        - matchScore: double
+        - strategyName: String
+        - rationale: String
+    }
+}
+
+package "com.iitsm.domain.strategy.similarity" {
+    interface SimilarityMeasure <<Strategy>> {
+        + calculateSimilarity(textA: String, textB: String): double
+    }
+
+    class CosineTfIdfSimilarity implements SimilarityMeasure {
+        - vectorizer: TfIdfVectorizer
+    }
+
+    class JaccardSimilarity implements SimilarityMeasure {
+    }
+
+    class DuplicateDetectionService {
+        - incidentRepository: IncidentRepository
+        - similarityMeasure: SimilarityMeasure
+        + checkAndLinkDuplicate(newIncident: Incident): Optional<DuplicateMatch>
+    }
+
+    class SlaService {
+        - incidentRepository: IncidentRepository
+        - eventPublisher: DomainEventPublisher
+        - escalationService: EscalationService
+        + evaluateActiveIncidents(): List<SlaEvaluationResult>
+        + evaluateIncident(incidentId: String): SlaEvaluationResult
+    }
+
+    class EscalationService {
+        - escalationChain: EscalationHandler
+        - escalationRecordRepository: SpringDataEscalationRecordRepository
+        - eventPublisher: DomainEventPublisher
+        + evaluateAndEscalate(incident: Incident): Optional<EscalationAction>
+        + getEscalationHistory(incidentId: String): List<EscalationRecord>
+    }
+
+    class ReportingService {
+        - incidentRepository: IncidentRepository
+        - supportTeamRepository: SupportTeamRepository
+        - itServiceRepository: ItServiceRepository
+        + generateWorkloadReport(): WorkloadReportDto
+        + generateServiceAnalysisReport(): ServiceAnalysisReportDto
+        + generateSlaPerformanceReport(): SlaPerformanceReportDto
+        + generateMttrReport(): MttrReportDto
+    }
+}
+
+package "com.iitsm.domain.chain.escalation" #E0F2FE {
+    interface EscalationHandler <<Chain of Responsibility>> {
+        + setNext(next: EscalationHandler): EscalationHandler
+        + handle(incident: Incident, context: EscalationContext): Optional<EscalationAction>
+    }
+
+    abstract class AbstractEscalationHandler implements EscalationHandler {
+        # next: EscalationHandler
+        + setNext(next: EscalationHandler): EscalationHandler
+        + handle(incident: Incident, context: EscalationContext): Optional<EscalationAction>
+        # {abstract} canHandle(incident: Incident, context: EscalationContext): boolean
+        # {abstract} execute(incident: Incident, context: EscalationContext): EscalationAction
+    }
+
+    class Tier1TechnicianHandler extends AbstractEscalationHandler
+    class Tier2TeamLeadHandler extends AbstractEscalationHandler
+    class Tier3SystemAdminHandler extends AbstractEscalationHandler
+    class Tier4ItManagerHandler extends AbstractEscalationHandler
+
+    class EscalationChainBuilder {
+        + {static} buildDefaultChain(): EscalationHandler
+    }
+}
+
+package "com.iitsm.simulation" #F5F3FF {
+    class AdjustableClock <<Decorator>> {
+        - baseClock: Clock
+        - speedMultiplier: long
+        - virtualOffset: Duration
+        + instant(): Instant
+        + setSpeedMultiplier(multiplier: long): void
+        + fastForward(duration: Duration): void
+        + reset(): void
+    }
+
+    class SimulationService {
+        - clock: AdjustableClock
+        - incidentService: IncidentService
+        - slaService: SlaService
+        - escalationService: EscalationService
+        + runScenario(scenarioId: String): SimulationResult
+        + setSpeedMultiplier(speed: long): void
+        + advanceClock(duration: Duration): void
+        + resetSimulation(): void
+    }
+}
+
+IncidentService --> IncidentFactory
+IncidentService --> IncidentRepository
+IncidentService --> IncidentUrgencyOrdering
+IncidentService --> IncidentClassifier
+IncidentService --> ServiceMatcher
+IncidentService --> CompositePriorityCalculator
+IncidentService --> AssignmentStrategyRegistry
+IncidentService --> CandidateFilter
+IncidentService --> DuplicateDetectionService
+CompositeClassifier --> KeywordClassifier
+CompositeClassifier --> NaiveBayesClassifier
+CompositePriorityCalculator --> PriorityFactor
+AssignmentStrategyRegistry --> AssignmentStrategy
+DuplicateDetectionService --> SimilarityMeasure
+CosineTfIdfSimilarity --> TfIdfVectorizer
+EmployeeController --> IncidentService
+TechnicianController --> IncidentService
+AdminController --> IncidentService
+ReportController --> ReportingService
+SimulationController --> SimulationService
+NotificationObserver --> NotificationRouter
+NotificationRouter --> NotificationChannel
+SlaService --> EscalationService
+EscalationService --> EscalationHandler
+AbstractEscalationHandler --> EscalationHandler : next
+SimulationService --> AdjustableClock
+SimulationService --> IncidentService
+SimulationService --> SlaService
+
+@enduml
