@@ -749,11 +749,17 @@ function renderTechnicianQueue(queue, isTeamMode = false) {
     const canAct = isAssignedToMe || isTeamLead;
     const actions = t.allowedActions || [];
 
-    const canAck = canAct && (t.status === 'ASSIGNED' || actions.includes('acknowledge'));
-    const canInvestigate = canAct && (t.status === 'ACKNOWLEDGED' || actions.includes('startInvestigation'));
-    const canResolve = canAct && (t.status === 'IN_PROGRESS' || t.status === 'ACKNOWLEDGED' || actions.includes('resolve'));
-    const isPendingInfo = (t.status === 'PENDING_INFO');
-    const isResolved = (t.status === 'RESOLVED' || t.status === 'VERIFIED' || t.status === 'CLOSED');
+    const canAck         = canAct && actions.includes('acknowledge');
+    const canInvestigate = canAct && actions.includes('startInvestigation');
+    const canWrongDomain = canAct && actions.includes('flagWrongDomain');
+    const canRequestInfo = canAct && actions.includes('requestInfo');
+    // "Resolve" is only valid when the domain State Pattern permits it (i.e. IN_PROGRESS).
+    // Do NOT include 'ACKNOWLEDGED' here – resolve is illegal in that state and the backend
+    // will reject it with InvalidStateTransitionException.
+    const canResolve     = canAct && actions.includes('resolve');
+    const canAddNote     = canAct && (t.status === 'ACKNOWLEDGED' || t.status === 'IN_PROGRESS' || t.status === 'PENDING_INFO');
+    const isPendingInfo  = (t.status === 'PENDING_INFO');
+    const isResolved     = (t.status === 'RESOLVED' || t.status === 'VERIFIED' || t.status === 'CLOSED');
 
     const targetDeadline = t.resolutionDueAt || t.responseDueAt;
 
@@ -787,15 +793,17 @@ function renderTechnicianQueue(queue, isTeamMode = false) {
             <button type="button" class="btn btn-xs btn-primary btn-tech-ack" data-id="${t.id}">Acknowledge</button>` : ''}
           ${canInvestigate ? `
             <button type="button" class="btn btn-xs btn-secondary btn-tech-investigate" data-id="${t.id}">Start Investigation</button>` : ''}
+          ${canWrongDomain ? `
+            <button type="button" class="btn btn-xs btn-danger btn-tech-wrongdomain" data-id="${t.id}">Flag Out-of-Scope</button>` : ''}
+          ${canAddNote ? `
+            <button type="button" class="btn btn-xs btn-secondary btn-tech-note" data-id="${t.id}">Add Note</button>` : ''}
+          ${canRequestInfo ? `
+            <button type="button" class="btn btn-xs btn-warning btn-tech-reqinfo" data-id="${t.id}">Request Info (Pause SLA)</button>` : ''}
           ${canResolve ? `
-            <button type="button" class="btn btn-xs btn-secondary btn-tech-note" data-id="${t.id}">Add Note</button>
-            <button type="button" class="btn btn-xs btn-warning btn-tech-reqinfo" data-id="${t.id}">Request Info (Pause SLA)</button>
-            <button type="button" class="btn btn-xs btn-danger btn-tech-wrongdomain" data-id="${t.id}">Flag Out-of-Scope</button>
             <button type="button" class="btn btn-xs btn-success btn-tech-resolve" data-id="${t.id}">Resolve</button>
           ` : ''}
           ${isPendingInfo ? `
             <span class="badge badge-warning" style="margin-right: 0.5rem;">Clock Paused - Waiting on User Response</span>
-            <button type="button" class="btn btn-xs btn-secondary btn-tech-note" data-id="${t.id}">Add Note</button>
           ` : ''}
           ${isResolved ? `
             <span class="badge badge-status-resolved">Resolved (Awaiting Reporter Verification)</span>

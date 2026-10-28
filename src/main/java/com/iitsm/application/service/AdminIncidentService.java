@@ -123,8 +123,28 @@ public class AdminIncidentService {
 
         Instant now = clock.instant();
         String previousAssigneeId = incident.getAssigneeId();
-        if (incident.getStatus() == IncidentStatus.ASSIGNED || incident.getStatus() == IncidentStatus.ACKNOWLEDGED) {
+        if (incident.getStatus() == IncidentStatus.ASSIGNED
+                || incident.getStatus() == IncidentStatus.ACKNOWLEDGED) {
+            // These states support flagWrongDomain via the State Pattern
             incident.flagWrongDomain(adminId, "Administrative reassignment", now);
+            if (previousAssigneeId != null) {
+                technicianRepository.findById(previousAssigneeId).ifPresent(prevTech -> {
+                    prevTech.releaseIncident(incidentId);
+                    technicianRepository.save(prevTech);
+                });
+            }
+        } else if (incident.getStatus() == IncidentStatus.IN_PROGRESS
+                || incident.getStatus() == IncidentStatus.PENDING_INFO) {
+            // These states do not expose flagWrongDomain through the State Pattern,
+            // so we perform the equivalent reset directly: clear assignee and
+            // return to CLASSIFIED so that the subsequent assign() call succeeds.
+            if (incident.getStatus() == IncidentStatus.PENDING_INFO
+                    && incident.getSlaTracker() != null) {
+                // Resume a paused SLA clock before re-routing
+                incident.getSlaTracker().resumeClock(now);
+            }
+            incident.clearAssignee();
+            incident.transitionTo(IncidentStatus.CLASSIFIED);
             if (previousAssigneeId != null) {
                 technicianRepository.findById(previousAssigneeId).ifPresent(prevTech -> {
                     prevTech.releaseIncident(incidentId);

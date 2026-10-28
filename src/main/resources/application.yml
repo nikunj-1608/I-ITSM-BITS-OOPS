@@ -64,6 +64,9 @@ iitsm:
   simulation:
     seed: 42
     auto-seed: true
+  # Feature flag: when true the technician queue includes RESOLVED and CLOSED tickets
+  # so that solved tickets remain visible instead of disappearing after resolution.
+  show-solved-tickets: ${SHOW_SOLVED_TICKETS:true}
 
 ---
 spring:

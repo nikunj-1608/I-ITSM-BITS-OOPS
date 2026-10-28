@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,13 @@ public class IncidentLifecycleService {
     private final AccessPolicy accessPolicy;
     private final Clock clock;
 
+    /**
+     * Feature flag – when {@code true} the technician queue includes RESOLVED and CLOSED
+     * tickets so that solved tickets remain visible after resolution.
+     * Controlled via {@code iitsm.show-solved-tickets} in application.yml.
+     */
+    private final boolean showSolvedTickets;
+
     public IncidentLifecycleService(
             IncidentRepository incidentRepository,
             UserRepository userRepository,
@@ -62,6 +70,21 @@ public class IncidentLifecycleService {
             DomainEventPublisher eventPublisher,
             AccessPolicy accessPolicy,
             Clock clock) {
+        this(incidentRepository, userRepository, technicianRepository, itServiceRepository,
+                reassignmentRequestRepository, eventPublisher, accessPolicy, clock, true);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public IncidentLifecycleService(
+            IncidentRepository incidentRepository,
+            UserRepository userRepository,
+            TechnicianRepository technicianRepository,
+            ItServiceRepository itServiceRepository,
+            ReassignmentRequestRepository reassignmentRequestRepository,
+            DomainEventPublisher eventPublisher,
+            AccessPolicy accessPolicy,
+            Clock clock,
+            @Value("${iitsm.show-solved-tickets:true}") boolean showSolvedTickets) {
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository cannot be null");
         this.technicianRepository = Objects.requireNonNull(technicianRepository, "technicianRepository cannot be null");
@@ -70,6 +93,7 @@ public class IncidentLifecycleService {
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher cannot be null");
         this.accessPolicy = Objects.requireNonNull(accessPolicy, "accessPolicy cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
+        this.showSolvedTickets = showSolvedTickets;
     }
 
     public Incident getIncident(String actorIdOrEmail, String incidentId) {
@@ -91,8 +115,12 @@ public class IncidentLifecycleService {
     @Transactional(readOnly = true)
     public List<Incident> getTechnicianQueue(String technicianIdOrEmail) {
         User technician = loadUser(technicianIdOrEmail);
+        // When showSolvedTickets is true (the default) all incidents assigned to the
+        // technician are returned – including RESOLVED and CLOSED – so that solved
+        // tickets remain visible in the UI instead of disappearing after resolution.
+        // When the flag is false the historical behaviour (active tickets only) is kept.
         return incidentRepository.findByAssigneeId(technician.getId()).stream()
-                .filter(i -> i.getStatus() != IncidentStatus.CLOSED)
+                .filter(i -> showSolvedTickets || i.getStatus() != IncidentStatus.CLOSED)
                 .sorted(IncidentUrgencyOrdering.INSTANCE)
                 .collect(Collectors.toList());
     }

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iitsm.application.service.IncidentService;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
+import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.security.JwtTokenProvider;
@@ -16,6 +17,8 @@ import com.iitsm.web.dto.AddNoteRequest;
 import com.iitsm.web.dto.FlagWrongDomainRequest;
 import com.iitsm.web.dto.ProvideInfoRequest;
 import com.iitsm.web.dto.ResolveIncidentRequest;
+import java.time.Instant;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -147,6 +150,7 @@ class TechnicianControllerTest {
     }
 
     @Test
+    @Transactional
     @DisplayName("Technician can flag wrong domain")
     void testFlagWrongDomain() throws Exception {
         FlagWrongDomainRequest req = new FlagWrongDomainRequest("Ticket belongs to Cloud infrastructure team");
@@ -155,5 +159,106 @@ class TechnicianControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNoContent());
+    }
+
+    // -----------------------------------------------------------------------
+    // Regression: solved tickets must remain visible in the technician queue
+    // -----------------------------------------------------------------------
+
+    /**
+     * Verifies that after a technician resolves an incident, the ticket still
+     * appears in the /api/technician/queue response with status RESOLVED.
+     * <p>
+     * Previously a {@code .filter(i -> i.getStatus() != CLOSED)} guard in
+     * {@link com.iitsm.application.service.IncidentLifecycleService#getTechnicianQueue}
+     * stripped RESOLVED tickets as well when {@code showSolvedTickets=false}.
+     * The feature flag {@code iitsm.show-solved-tickets=true} (now the default)
+     * ensures both RESOLVED and CLOSED tickets are returned so they are rendered
+     * with the appropriate badge instead of silently disappearing.
+     */
+    @Test
+    @Transactional
+    @DisplayName("shouldReturnSolvedTicketsForTechnician – RESOLVED ticket appears in queue")
+    void shouldReturnSolvedTicketsForTechnician() throws Exception {
+        // ── Arrange: drive the incident to RESOLVED ───────────────────────
+        incidentService.acknowledge(incident.getId(), technician.getId());
+        incidentService.startInvestigation(incident.getId(), technician.getId());
+
+        Resolution resolution = new Resolution(
+                "Root cause identified: misconfigured upstream",
+                "Rolled back configuration and restarted service",
+                "Added alert for configuration drift",
+                IncidentCategory.APPLICATION.name(),
+                technician.getId(),
+                Instant.now());
+        incidentService.resolve(incident.getId(), technician.getId(), resolution);
+
+        // ── Act: fetch the technician queue ───────────────────────────────
+        String responseBody = mockMvc.perform(get("/api/technician/queue")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // ── Assert: the RESOLVED ticket is present ────────────────────────
+        mockMvc.perform(get("/api/technician/queue")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                // At least one element in the array should have status RESOLVED
+                .andExpect(jsonPath(
+                        "$[?(@.id == '" + incident.getId() + "')].status",
+                        Matchers.hasItem("RESOLVED")));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("Technician cannot resolve incident while in ACKNOWLEDGED state until investigation started")
+    void testResolveRejectedInAcknowledgedStateUntilInvestigationStarted() throws Exception {
+        // 1. Move to ACKNOWLEDGED
+        mockMvc.perform(post("/api/technician/incidents/" + incident.getId() + "/acknowledge")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACKNOWLEDGED"))
+                .andExpect(jsonPath("$.allowedActions", Matchers.hasItem("startInvestigation")))
+                .andExpect(jsonPath("$.allowedActions", Matchers.not(Matchers.hasItem("resolve"))));
+
+        // 2. Premature resolve attempt must be rejected by State Pattern with 409 CONFLICT
+        ResolveIncidentRequest prematureResolveReq = new ResolveIncidentRequest(
+                "Premature fix attempt",
+                "Applied fix directly without investigating",
+                "None",
+                IncidentCategory.APPLICATION);
+
+        mockMvc.perform(post("/api/technician/incidents/" + incident.getId() + "/resolve")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(prematureResolveReq)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ERR_INVALID_STATE_TRANSITION"))
+                .andExpect(jsonPath("$.message", Matchers.containsString("Action 'resolve' is not allowed when incident is in state 'ACKNOWLEDGED'")));
+
+        // 3. Start investigation -> moves to IN_PROGRESS
+        mockMvc.perform(post("/api/technician/incidents/" + incident.getId() + "/start-investigation")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.allowedActions", Matchers.hasItem("resolve")));
+
+        // 4. Now resolve succeeds
+        ResolveIncidentRequest validResolveReq = new ResolveIncidentRequest(
+                "Root cause identified after investigation",
+                "Applied fix and verified logs",
+                "Monitoring rule added",
+                IncidentCategory.APPLICATION);
+
+        mockMvc.perform(post("/api/technician/incidents/" + incident.getId() + "/resolve")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validResolveReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESOLVED"))
+                .andExpect(jsonPath("$.resolution.rootCause").value("Root cause identified after investigation"));
     }
 }
