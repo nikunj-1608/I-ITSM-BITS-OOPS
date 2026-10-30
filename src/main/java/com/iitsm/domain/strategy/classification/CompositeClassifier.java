@@ -14,6 +14,13 @@ public class CompositeClassifier implements IncidentClassifier {
 
     private static final String CLASSIFIER_NAME = "COMPOSITE_CLASSIFIER";
     private static final double HIGH_KEYWORD_THRESHOLD = 0.85;
+    private static final double CONFIDENT_THRESHOLD = ClassificationResult.TRIAGE_THRESHOLD;
+    private static final double WEAK_KEYWORD_MAX = 0.50;
+    private static final double NO_KEYWORD_MATCH_MAX = 0.20;
+    private static final double TRIAGE_CAP = 0.55;
+    private static final double AGREEMENT_BOOST_FACTOR = 1.15;
+    private static final double AGREEMENT_BOOST_BONUS = 0.10;
+    private static final double MAX_CONFIDENCE = 0.99;
 
     private final KeywordClassifier keywordClassifier;
     private final NaiveBayesClassifier naiveBayesClassifier;
@@ -43,10 +50,14 @@ public class CompositeClassifier implements IncidentClassifier {
         IncidentCategory finalCategory;
         double finalConfidence;
 
-        if (keywordResult.category() == nbResult.category()) {
+        boolean modelsAgree = (keywordResult.category() == nbResult.category());
+
+        if (modelsAgree) {
             finalCategory = nbResult.category();
-            if (keywordResult.confidence() >= 0.60 && nbResult.confidence() >= 0.60) {
-                finalConfidence = Math.min(0.99, Math.max(nbResult.confidence(), keywordResult.confidence()) * 1.15 + 0.10);
+            if (keywordResult.confidence() >= CONFIDENT_THRESHOLD && nbResult.confidence() >= CONFIDENT_THRESHOLD) {
+                finalConfidence = Math.min(MAX_CONFIDENCE,
+                        Math.max(nbResult.confidence(), keywordResult.confidence()) * AGREEMENT_BOOST_FACTOR
+                                + AGREEMENT_BOOST_BONUS);
             } else {
                 finalConfidence = Math.max(nbResult.confidence(), keywordResult.confidence());
             }
@@ -61,12 +72,26 @@ public class CompositeClassifier implements IncidentClassifier {
             combinedRationale.add("Selected Keyword prediction over Naive Bayes classifier");
         }
 
-        if (keywordResult.confidence() <= 0.50) {
-            // Weak or no keyword support indicates an ambiguous or vague ticket; cap confidence below auto-assignment threshold to route to human triage
-            finalConfidence = Math.min(finalConfidence, 0.55);
+        // Triage routing: cap below the auto-assign threshold when evidence is weak. Naive Bayes alone is
+        // overconfident on vague text (0.8-0.97 observed with zero keyword hits), so it must be corroborated:
+        // 1. No domain keyword matched at all, OR
+        // 2. A single keyword matched outside the title (<= 0.50), OR
+        // 3. Models disagree and keyword support is below the confidence threshold, OR
+        // 4. Neither model reaches the confidence threshold.
+        double keywordConfidence = keywordResult.confidence();
+        if (keywordConfidence <= NO_KEYWORD_MATCH_MAX) {
+            finalConfidence = Math.min(finalConfidence, TRIAGE_CAP);
+            combinedRationale.add("No explicit domain keywords matched; capped at 0.55 for human triage");
+        } else if (keywordConfidence <= WEAK_KEYWORD_MAX) {
+            finalConfidence = Math.min(finalConfidence, TRIAGE_CAP);
             combinedRationale.add("Weak keyword support (confidence <= 0.50); capped at 0.55 for human triage");
+        } else if (!modelsAgree && keywordConfidence < CONFIDENT_THRESHOLD) {
+            finalConfidence = Math.min(finalConfidence, TRIAGE_CAP);
+            combinedRationale.add("Models in disagreement with weak keyword support; capped at 0.55 for human triage");
+        } else if (keywordConfidence < CONFIDENT_THRESHOLD && nbResult.confidence() < CONFIDENT_THRESHOLD) {
+            finalConfidence = Math.min(finalConfidence, TRIAGE_CAP);
+            combinedRationale.add("Both models below confidence threshold; capped at 0.55 for human triage");
         }
-
         return ClassificationResult.of(finalCategory, finalConfidence, CLASSIFIER_NAME, combinedRationale);
     }
 

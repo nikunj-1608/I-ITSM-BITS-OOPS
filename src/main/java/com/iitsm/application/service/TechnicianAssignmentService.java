@@ -1,5 +1,6 @@
 package com.iitsm.application.service;
 
+import com.iitsm.domain.exception.TechnicianOverloadedException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.Technician;
 import com.iitsm.domain.repository.TechnicianRepository;
@@ -19,6 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Service managing technician assignment within an isolated transaction boundary (REQUIRES_NEW).
  * This ensures that concurrent capacity contention (optimistic locking conflicts on technicians)
  * does not mark the caller's outer incident creation transaction as rollback-only.
+ *
+ * <p>Only the expected capacity race ({@link TechnicianOverloadedException}) is absorbed here. Optimistic-lock
+ * failures surface when this transaction commits, i.e. at the proxy boundary, so callers must handle
+ * {@code ObjectOptimisticLockingFailureException}; any other failure propagates instead of being hidden.
  */
 @Service
 public class TechnicianAssignmentService {
@@ -59,8 +64,8 @@ public class TechnicianAssignmentService {
             freshTech.assignIncident(incident.getId());
             technicianRepository.save(freshTech);
             return Optional.of(freshTech.getId());
-        } catch (Exception ex) {
-            log.warn("Technician assignment contention for incident {}: {}", incident.getId(), ex.getMessage());
+        } catch (TechnicianOverloadedException ex) {
+            log.warn("Technician capacity race for incident {}: {}", incident.getId(), ex.getMessage());
             return Optional.empty();
         }
     }

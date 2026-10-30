@@ -98,3 +98,20 @@ This document records architectural, design, and technical decisions made during
   1. *Monolithic if-else blocks in SlaService*: Violates the Open/Closed Principle and Single Responsibility Principle; adding or reordering escalation tiers requires modifying application service code.
   2. *OS system time manipulation or Thread.sleep in tests*: Flaky, dangerous, causes timeout in CI/CD, and cannot support interactive simulation speed adjustments.
 - **Reason**: The Chain of Responsibility pattern isolates escalation criteria into independently testable classes with clear precedence; `AdjustableClock` provides instantaneous temporal simulation with zero thread blocking; and domain events seamlessly trigger notifications and audit logs across all tiers.
+
+---
+
+## ADR-009: Evidence-Based Triage Gating for Automatic Technician Assignment
+- **Status**: Accepted
+- **Context**: Tickets stopped being auto-assigned. Intake only assigns when classification confidence is at least 0.60; otherwise the ticket is flagged `needsTriage` and `UnassignedIncidentDispatcher` deliberately skips it, so only an admin can release it. The composite classifier capped confidence at 0.55 whenever the keyword classifier scored 0.50 or lower, which sent almost every short or conversational ticket to triage even when Naive Bayes agreed. Measured on the seeded corpus, Naive Bayes alone is badly overconfident on vague text (0.84 to 0.97 with zero keyword hits), so it cannot be trusted without corroboration.
+- **Decision**:
+  1. `KeywordClassifier` scores a single keyword hit found in the ticket title at 0.55 (`SINGLE_TITLE_MATCH_CONFIDENCE`); a single hit only in the description stays at 0.50.
+  2. `CompositeClassifier` caps confidence at 0.55 (routing to triage) when: no keyword matched; or a single keyword matched outside the title; or models disagree and keyword support is below 0.60; or neither model reaches 0.60. All thresholds are named constants.
+  3. `TechnicianAssignmentService`, `IncidentIntakePipeline` and `UnassignedIncidentDispatcher` handle only expected contention (`TechnicianOverloadedException`, `ObjectOptimisticLockingFailureException`), log a WARN when no technician has capacity, and let unexpected failures propagate. A lost lock race no longer aborts the whole dispatcher cycle.
+  4. `findAvailableTechnicians` is null-safe for `availability_status` and `max_capacity` (a NULL capacity is treated as uncapped by the query; the domain `hasCapacity()` check then applies the mapper default of 5).
+- **Alternatives Considered**:
+  1. *Trust Naive Bayes when keywords abstain*: rejected after measurement; it auto-assigned vague and gibberish tickets to arbitrary teams.
+  2. *Auto-assign any single keyword (no title rule)*: rejected; indistinguishable from ambiguous tickets such as F5 ("screen" only in the description), which the regression suite requires to go to triage.
+  3. *Keep the original rule (single keyword goes to triage)*: rejected; clear tickets such as "VPN keeps dropping" would never auto-assign.
+  4. *Let the dispatcher also release triage tickets automatically*: rejected as an unlisted feature; human triage stays the owner of low-confidence tickets.
+- **Reason**: Evidence-weighted gating keeps the human-in-the-loop safeguard for genuinely ambiguous tickets while restoring automatic assignment for clear ones, keeps the policy inside the Composite/Strategy classifier so callers still depend only on `IncidentClassifier`, and replaces silent failure with explicit, observable handling (CLAUDE.md rules 9 and 15).
