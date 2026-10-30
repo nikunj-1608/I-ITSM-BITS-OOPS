@@ -144,4 +144,27 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"));
     }
+
+    @Test
+    @DisplayName("Incident detail keeps the existing top-level fields and adds reporter, service, team and audit details")
+    void testIncidentDetailIncludesRelatedInformation() throws Exception {
+        mockMvc.perform(get("/api/admin/incidents/" + incident.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                // backward-compatible top-level fields (unwrapped AdminIncidentView)
+                .andExpect(jsonPath("$.id").value(incident.getId()))
+                .andExpect(jsonPath("$.title").value(incident.getTitle()))
+                .andExpect(jsonPath("$.priorityDecision.factorContributions").isArray())
+                .andExpect(jsonPath("$.slaTracker.resolutionDueAt").exists())
+                .andExpect(jsonPath("$.auditTrail").isArray())
+                // detail-only fields
+                .andExpect(jsonPath("$.reporter.email").isString())
+                .andExpect(jsonPath("$.reporter.name").isString())
+                .andExpect(jsonPath("$.service.name").isString())
+                .andExpect(jsonPath("$.service.criticalityLabel").isString())
+                .andExpect(jsonPath("$.supportTeam.name").isString())
+                .andExpect(jsonPath("$.publicStatus").isString())
+                .andExpect(jsonPath("$.needsTriage").isBoolean())
+                .andExpect(jsonPath("$.lastModifiedAt").exists());
+    }
 }

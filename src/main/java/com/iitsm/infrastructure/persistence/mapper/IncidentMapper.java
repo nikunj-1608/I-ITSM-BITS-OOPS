@@ -1,11 +1,13 @@
 package com.iitsm.infrastructure.persistence.mapper;
 
+import com.iitsm.domain.model.FactorContribution;
 import com.iitsm.domain.model.Feedback;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.InvestigationNote;
 import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.model.SlaTracker;
+import com.iitsm.infrastructure.persistence.entity.FactorContributionJpaEntity;
 import com.iitsm.infrastructure.persistence.entity.FeedbackJpaEntity;
 import com.iitsm.infrastructure.persistence.entity.IncidentJpaEntity;
 import com.iitsm.infrastructure.persistence.entity.InvestigationNoteJpaEntity;
@@ -16,7 +18,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +59,7 @@ public final class IncidentMapper {
             PriorityDecision decision = new PriorityDecision(
                     entity.getPriority(),
                     entity.getCompositeScore() != null ? entity.getCompositeScore() : 0.0,
-                    Collections.emptyList(),
+                    toFactorContributions(entity),
                     rules,
                     entity.getPriorityCalculatedAt() != null ? entity.getPriorityCalculatedAt() : entity.getCreatedAt(),
                     entity.getPriorityOverriddenBy(),
@@ -144,6 +148,7 @@ public final class IncidentMapper {
             entity.setPriorityCalculatedAt(pd.calculatedAt());
             entity.setPriorityOverriddenBy(pd.overriddenBy());
             entity.setPriorityOverrideReason(pd.overrideReason());
+            entity.setFactorContributions(toFactorEntities(pd, entity));
         }
 
         if (domain.getSlaTracker() != null) {
@@ -202,5 +207,29 @@ public final class IncidentMapper {
 
         return entity;
     }
-}
 
+    private static List<FactorContribution> toFactorContributions(IncidentJpaEntity entity) {
+        if (entity.getFactorContributions() == null) {
+            return Collections.emptyList();
+        }
+        return entity.getFactorContributions().stream()
+                .map(f -> new FactorContribution(
+                        f.getFactorName(), f.getRawScore(), f.getWeight(), f.getWeightedScore(), f.getExplanation()))
+                .collect(Collectors.toList());
+    }
+
+    private static Set<FactorContributionJpaEntity> toFactorEntities(PriorityDecision decision, IncidentJpaEntity owner) {
+        Set<FactorContributionJpaEntity> rows = new LinkedHashSet<>();
+        for (FactorContribution factor : decision.factorContributions()) {
+            FactorContributionJpaEntity row = new FactorContributionJpaEntity();
+            row.setIncident(owner);
+            row.setFactorName(factor.factorName());
+            row.setRawScore(factor.rawScore());
+            row.setWeight(factor.weight());
+            row.setWeightedScore(factor.weightedScore());
+            row.setExplanation(factor.explanation());
+            rows.add(row);
+        }
+        return rows;
+    }
+}

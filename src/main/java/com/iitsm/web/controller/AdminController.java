@@ -1,6 +1,7 @@
 package com.iitsm.web.controller;
 
 import com.iitsm.application.dto.TriageQueueItemDto;
+import com.iitsm.application.service.AdminIncidentDetailService;
 import com.iitsm.application.service.AuditService;
 import com.iitsm.application.service.IncidentService;
 import com.iitsm.application.service.SearchService;
@@ -15,6 +16,7 @@ import com.iitsm.domain.model.Priority;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.strategy.assignment.AssignmentStrategy;
 import com.iitsm.domain.strategy.assignment.AssignmentStrategyRegistry;
+import com.iitsm.web.dto.AdminIncidentDetailView;
 import com.iitsm.web.dto.AdminIncidentView;
 import com.iitsm.web.dto.AssignRequest;
 import com.iitsm.web.dto.FeedbackRequest;
@@ -56,6 +58,7 @@ public class AdminController {
     private final SearchService searchService;
     private final UserService userService;
     private final AuditService auditService;
+    private final AdminIncidentDetailService incidentDetailService;
     private final Clock clock;
 
     public AdminController(
@@ -63,11 +66,13 @@ public class AdminController {
             SearchService searchService,
             UserService userService,
             AuditService auditService,
+            AdminIncidentDetailService incidentDetailService,
             Clock clock) {
         this.incidentService = Objects.requireNonNull(incidentService, "incidentService cannot be null");
         this.searchService = Objects.requireNonNull(searchService, "searchService cannot be null");
         this.userService = Objects.requireNonNull(userService, "userService cannot be null");
         this.auditService = Objects.requireNonNull(auditService, "auditService cannot be null");
+        this.incidentDetailService = Objects.requireNonNull(incidentDetailService, "incidentDetailService cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
@@ -99,12 +104,11 @@ public class AdminController {
     }
 
     @GetMapping("/incidents/{id}")
-    public ResponseEntity<AdminIncidentView> getIncidentDetails(
+    public ResponseEntity<AdminIncidentDetailView> getIncidentDetails(
             @PathVariable("id") String id,
             Authentication authentication) {
         String adminId = authentication.getName();
-        Incident incident = incidentService.getIncident(adminId, id);
-        return ResponseEntity.ok(mapToAdminView(incident));
+        return ResponseEntity.ok(IncidentDtoMapper.toAdminDetailView(incidentDetailService.getDetail(adminId, id)));
     }
 
     @PostMapping("/incidents/{id}/assign")

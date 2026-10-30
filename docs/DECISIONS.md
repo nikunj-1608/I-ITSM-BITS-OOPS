@@ -115,3 +115,36 @@ This document records architectural, design, and technical decisions made during
   3. *Keep the original rule (single keyword goes to triage)*: rejected; clear tickets such as "VPN keeps dropping" would never auto-assign.
   4. *Let the dispatcher also release triage tickets automatically*: rejected as an unlisted feature; human triage stays the owner of low-confidence tickets.
 - **Reason**: Evidence-weighted gating keeps the human-in-the-loop safeguard for genuinely ambiguous tickets while restoring automatic assignment for clear ones, keeps the policy inside the Composite/Strategy classifier so callers still depend only on `IncidentClassifier`, and replaces silent failure with explicit, observable handling (CLAUDE.md rules 9 and 15).
+
+---
+
+## ADR-010: Dedicated Read Model for the Admin Ticket Inspection Dialog
+- **Status**: Accepted
+- **Context**: Administrators need a full inspection view of one ticket (reporter, IT service and criticality, support team, SLA, explainable priority breakdown, notes, resolution, feedback, linked tickets, audit trail). `AdminIncidentView` already carries most of this, but it is also the row type of the Command Centre list, which maps every row with two user lookups and one audit query. Adding service and team lookups to it would make every table load pay for data only the single-ticket dialog needs.
+- **Decision**:
+  1. `GET /api/admin/incidents/{id}` returns a new `AdminIncidentDetailView`; the list endpoint keeps returning `AdminIncidentView`.
+  2. The detail view embeds `AdminIncidentView` with `@JsonUnwrapped`, so every existing top-level JSON field is unchanged and current consumers keep working.
+  3. A new read-only application service, `AdminIncidentDetailService`, assembles an application-layer `AdminIncidentDetail` (incident, reporter, assignee, IT service, support team, audit records). Access control is inherited by loading the incident through `IncidentLifecycleService`. `IncidentDtoMapper.toAdminDetailView` projects it to the web DTO.
+  4. Support team resolution: the assignee's own team when assigned, otherwise the owning team of the incident's IT service. "Last modified" is derived from the newest audit record, because `Incident` has no modification timestamp of its own.
+  5. Controllers stay free of repositories (ArchUnit rule A1); all lookups live in the application service and degrade to `null` for dangling references.
+- **Alternatives Considered**:
+  1. *Extend `AdminIncidentView` with the extra fields*: simplest, but adds N+1 lookups to the list endpoint.
+  2. *Resolve the extra data in `AdminController`*: violates "controllers call one application service method" and the A1 architecture rule.
+  3. *Separate endpoints per section, fetched lazily by the UI*: more round trips and more partial-failure states for no user benefit.
+- **Reason**: A purpose-built read model keeps the list cheap, keeps the dependency direction `web -> application -> domain`, and is backward compatible. It follows the persona-specific DTO rule (CLAUDE.md rule 12) and Interface Segregation: callers get exactly the projection they need.
+
+---
+
+## ADR-011: Persist the Priority Factor Breakdown
+- **Status**: Accepted
+- **Context**: The Flyway schema has a `factor_contributions` table, but no JPA mapping existed. `IncidentMapper` rebuilt every loaded `PriorityDecision` with an empty factor list, so the explainable priority breakdown (a core requirement of the multi-factor priority engine, ADR-007) was computed at intake and then silently lost on the first save and reload. Administrators saw an empty matrix.
+- **Decision**:
+  1. Add `FactorContributionJpaEntity` mapped to the existing table (no new migration), owned by `IncidentJpaEntity` through `@OneToMany(mappedBy, cascade = ALL, orphanRemoval = true, fetch = EAGER)`.
+  2. Use a `Set` ordered with `@OrderBy("id ASC")` rather than a `List`: the aggregate already fetches its notes eagerly as a `List` (a Hibernate bag), and a second eager bag raises `MultipleBagFetchException`. Generated identity ids preserve the calculator's factor order.
+  3. `IncidentMapper` writes the breakdown on save and reads it on load. The domain `PriorityDecision` and `FactorContribution` value objects are unchanged, so the domain layer stays pure.
+  4. Because `save` merges a freshly built entity, the factor rows are deleted and re-inserted on each incident save (at most six small rows). This is correct and bounded; avoiding it would require a natural key and a schema change.
+- **Alternatives Considered**:
+  1. *`@ElementCollection` of an embeddable*: same multiple-bag problem for a `List`, and the table already has a surrogate id column.
+  2. *Recompute factors on read*: depends on mutable inputs (reporter history, ticket age), so it would not reproduce what was decided at the time.
+  3. *Store the breakdown as JSON on the incident row*: loses queryability and duplicates the existing table.
+- **Reason**: The explainability requirement is only met if the decision that was actually made is what administrators later inspect. Mapping the table that already exists is the smallest change that achieves this and keeps the aggregate boundary intact. Tickets saved before this change have no stored rows; the UI states that the breakdown was not recorded for them.

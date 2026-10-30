@@ -19,7 +19,8 @@ const STATE = {
     speedMultiplier: 1
   },
   clockTimer: null,
-  notificationsTimer: null
+  notificationsTimer: null,
+  adminTicketDetail: { id: null, origin: null, requestSeq: 0 }
 };
 
 // ============================================================================
@@ -308,6 +309,7 @@ async function loginUser(email, password, switchDefaultTab = true) {
 }
 
 function handleSignOut(notify = true) {
+  closeAdminTicketDetailModal({ restoreFocus: false });
   STATE.currentUser = null;
   sessionStorage.removeItem('iitsm_session');
   showAuthView();
@@ -1042,6 +1044,32 @@ async function searchAdminIncidents() {
   }
 }
 
+function adminIncidentRowHtml(t) {
+  const priority = t.priorityDecision ? t.priorityDecision.priority : null;
+  const sla = t.slaTracker || null;
+  const breached = !!sla && sla.status === 'BREACHED';
+  const priorityCell = priority
+    ? `<span class="badge badge-${tdHyphenate(priority)}">${escapeHtml(priority)}</span>`
+    : '<span class="text-dim">--</span>';
+  const slaTitle = breached ? 'SLA resolution deadline (breached)' : 'SLA resolution deadline';
+
+  return `
+      <tr>
+        <td class="font-mono font-bold text-cyan text-xs"><span class="ticket-link cursor-pointer btn-admin-view-ticket" role="button" tabindex="0" title="View full ticket details" data-id="${escapeHtml(t.id)}">${escapeHtml(t.id)}</span></td>
+        <td class="font-semibold text-main">${escapeHtml(t.title)}</td>
+        <td><span class="badge" style="background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border);">${escapeHtml(t.category || 'GENERAL')}</span></td>
+        <td>${priorityCell}</td>
+        <td><span class="badge badge-status-${tdHyphenate(t.status)}">${escapeHtml(t.status)}</span></td>
+        <td>${escapeHtml(t.assigneeName || 'Unassigned')}</td>
+        <td class="font-mono text-xs ${breached ? 'text-red font-bold' : 'text-muted'}" title="${slaTitle}">${escapeHtml(formatDate(sla ? sla.resolutionDueAt : null))}</td>
+        <td class="text-right">
+          <button type="button" class="btn btn-xs btn-secondary btn-admin-override" data-id="${escapeHtml(t.id)}" title="Override Priority">Override</button>
+          <button type="button" class="btn btn-xs btn-secondary btn-admin-reassign" data-id="${escapeHtml(t.id)}" title="Reassign">Reassign</button>
+        </td>
+      </tr>
+    `;
+}
+
 function renderAdminIncidents(incidents) {
   const tbody = document.getElementById('admin-incidents-tbody');
   if (!tbody) return;
@@ -1051,27 +1079,9 @@ function renderAdminIncidents(incidents) {
     return;
   }
 
-  tbody.innerHTML = incidents.map(t => {
-    const pBadge = `badge-${t.priority ? t.priority.toLowerCase() : 'p3'}`;
-    const sBadge = `badge-status-${t.status.toLowerCase().replace('_', '-')}`;
+  tbody.innerHTML = incidents.map(adminIncidentRowHtml).join('');
 
-    return `
-      <tr>
-        <td class="font-mono font-bold text-cyan text-xs">${escapeHtml(t.id)}</td>
-        <td class="font-semibold text-main">${escapeHtml(t.title)}</td>
-        <td><span class="badge" style="background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border);">${escapeHtml(t.category || 'GENERAL')}</span></td>
-        <td><span class="badge ${pBadge}">${escapeHtml(t.priority || 'P3')}</span></td>
-        <td><span class="badge ${sBadge}">${escapeHtml(t.status)}</span></td>
-        <td>${escapeHtml(t.assigneeName || 'Unassigned')}</td>
-        <td class="font-mono text-xs ${t.slaBreached ? 'text-red font-bold' : 'text-muted'}">${formatDate(t.slaDeadline)}</td>
-        <td class="text-right">
-          <button type="button" class="btn btn-xs btn-secondary btn-admin-override" data-id="${t.id}" title="Override Priority">Override</button>
-          <button type="button" class="btn btn-xs btn-secondary btn-admin-reassign" data-id="${t.id}" title="Reassign">Reassign</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
+  bindAdminTicketLinks(tbody);
   tbody.querySelectorAll('.btn-admin-override').forEach(b => {
     b.addEventListener('click', () => openPriorityOverrideModal(b.getAttribute('data-id')));
   });
@@ -2065,6 +2075,8 @@ function setupEventListeners() {
       document.getElementById('notification-modal').classList.add('hidden');
     });
   }
+
+  setupTicketDetailListeners();
 }
 
 function updateAiPreview(title, desc) {
@@ -2105,4 +2117,394 @@ function formatDate(isoStr) {
   } catch (e) {
     return isoStr;
   }
+}
+
+// ============================================================================
+// 14. Admin Ticket Inspection Dialog
+// ============================================================================
+const TICKET_DETAIL_EMPTY = '--';
+const TICKET_DETAIL_MAX_RATING = 5;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const SLA_STATUS_LABELS = {
+  ON_TRACK: 'On track',
+  AT_RISK: 'At risk',
+  WARNING: 'Warning',
+  BREACHED: 'Breached',
+  MET: 'Met'
+};
+const SOLVED_STATUSES = ['RESOLVED', 'VERIFIED', 'CLOSED'];
+
+// --- Small rendering helpers (every dynamic value passes through escapeHtml) ---
+function tdEsc(value) {
+  return value === null || value === undefined ? '' : escapeHtml(String(value));
+}
+
+function tdText(value) {
+  const text = tdEsc(value);
+  return text === '' ? TICKET_DETAIL_EMPTY : text;
+}
+
+function tdMono(value) {
+  return `<span class="font-mono">${tdText(value)}</span>`;
+}
+
+function tdDate(iso) {
+  return `<span class="font-mono">${escapeHtml(formatDate(iso))}</span>`;
+}
+
+function tdNum(value, digits) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : TICKET_DETAIL_EMPTY;
+}
+
+function tdEmpty(message) {
+  return `<div class="td-empty">${escapeHtml(message)}</div>`;
+}
+
+function tdRows(rows) {
+  return rows.map(([label, valueHtml]) => `<dt>${escapeHtml(label)}</dt><dd>${valueHtml}</dd>`).join('');
+}
+
+function tdHyphenate(value) {
+  return String(value || '').toLowerCase().replace(/_/g, '-');
+}
+
+function tdHumanizeFactor(name) {
+  return String(name || '').replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function tdFormatDuration(totalSeconds) {
+  const seconds = Number(totalSeconds) || 0;
+  if (seconds < SECONDS_PER_MINUTE) return `${seconds} s`;
+  const minutes = Math.floor(seconds / SECONDS_PER_MINUTE);
+  if (minutes < MINUTES_PER_HOUR) return `${minutes} min`;
+  return `${Math.floor(minutes / MINUTES_PER_HOUR)} h ${minutes % MINUTES_PER_HOUR} min`;
+}
+
+function tdSetHtml(id, html) {
+  document.getElementById(id).innerHTML = html;
+}
+
+function tdSetText(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+// --- Section renderers ---
+function renderTicketDetailHeader(d) {
+  tdSetText('ticket-detail-id', d.id);
+  tdSetText('ticket-detail-title', d.title);
+  const priority = d.priorityDecision ? d.priorityDecision.priority : null;
+  tdSetHtml('ticket-detail-pills', [
+    `<span class="badge" style="background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border);">${tdText(d.category || 'GENERAL')}</span>`,
+    `<span class="badge badge-status-${tdHyphenate(d.status)}">${tdText(d.status)}</span>`,
+    priority ? `<span class="badge badge-${tdHyphenate(priority)}">${tdEsc(priority)}</span>` : '',
+    `<span class="badge badge-status-new" title="Status shown to the employee">Public: ${tdText(d.publicStatus)}</span>`,
+    `<span class="badge badge-p4">Reopened: ${tdEsc(d.reopenCount || 0)}</span>`
+  ].join(''));
+}
+
+function tdCriticalityPill(service) {
+  if (!service.criticalityTier) return TICKET_DETAIL_EMPTY;
+  const tier = (/TIER_(\d)/.exec(service.criticalityTier) || [])[1] || '1';
+  return `<span class="badge badge-tier-${tier}">${tdText(service.criticalityLabel || service.criticalityTier)}</span>`;
+}
+
+function renderTicketDetailIdentity(d) {
+  const reporter = d.reporter || {};
+  const service = d.service || {};
+  const team = d.supportTeam || {};
+  const sla = d.slaTracker || {};
+  const resolution = d.resolution || {};
+  const technician = d.assigneeName
+    ? tdText(d.assigneeName)
+    : '<span class="badge badge-p4">Unassigned</span>';
+
+  tdSetHtml('td-reporter', tdRows([
+    ['Name', tdText(reporter.name || d.reporterName)],
+    ['Email', tdText(reporter.email)],
+    ['Department', tdText(reporter.department || d.reporterDepartment)],
+    ['Designation', tdText(reporter.designation)],
+    ['Reporter ID', tdMono(d.reporterId)]
+  ]));
+  tdSetHtml('td-service', tdRows([
+    ['Service ID', tdMono(d.serviceId)],
+    ['Service', tdText(service.name)],
+    ['Criticality', tdCriticalityPill(service)]
+  ]));
+  tdSetHtml('td-assignment', tdRows([
+    [d.assigneeId ? 'Support team' : 'Owning team', tdText(team.name)],
+    ['Technician', technician],
+    ['Technician ID', tdMono(d.assigneeId)]
+  ]));
+  tdSetHtml('td-lifecycle', tdRows([
+    ['Created', tdDate(d.createdAt)],
+    ['Responded', tdDate(sla.respondedAt)],
+    ['Resolved', tdDate(sla.resolvedAt || resolution.resolvedAt)],
+    ['Last modified', tdDate(d.lastModifiedAt)]
+  ]));
+}
+
+function tdMetric(label, valueHtml, subText) {
+  return `<div class="td-metric"><div class="td-metric-label">${escapeHtml(label)}</div>`
+    + `<div class="td-metric-value">${valueHtml}</div><div class="td-metric-sub">${tdEsc(subText)}</div></div>`;
+}
+
+function tdSlaPills(sla, ticketStatus) {
+  const label = SLA_STATUS_LABELS[sla.status] || sla.status;
+  const paused = ticketStatus === 'PENDING_INFO'
+    ? '<span class="badge badge-sla-paused">Clock paused</span>'
+    : '';
+  return `<span class="badge badge-sla-${tdHyphenate(sla.status)}">${tdText(label)}</span>${paused}`;
+}
+
+function renderTicketDetailSla(d) {
+  const sla = d.slaTracker;
+  if (!sla) {
+    tdSetHtml('td-sla', tdEmpty('No SLA tracker is attached to this ticket yet.'));
+    return;
+  }
+  const pausedSeconds = Number(sla.pausedDurationSeconds) || 0;
+  tdSetHtml('td-sla', `
+    <div class="flex items-center gap-2" style="margin-bottom: 0.75rem;">
+      <span class="td-score-label">SLA status</span>${tdSlaPills(sla, d.status)}
+    </div>
+    <div class="td-metrics">
+      ${tdMetric('Response due', tdDate(sla.responseDueAt), `Responded: ${sla.respondedAt ? formatDate(sla.respondedAt) : 'not yet'}`)}
+      ${tdMetric('Resolution due', tdDate(sla.resolutionDueAt), `Resolved: ${sla.resolvedAt ? formatDate(sla.resolvedAt) : 'not yet'}`)}
+      ${tdMetric('Paused duration', escapeHtml(tdFormatDuration(pausedSeconds)), `${pausedSeconds} seconds accrued while waiting for information`)}
+    </div>`);
+}
+
+function tdFactorRow(factor, compositeScore) {
+  const share = compositeScore > 0
+    ? Math.min(100, Math.round((Number(factor.weightedScore) / compositeScore) * 100))
+    : 0;
+  return `<tr>
+    <td class="font-semibold">${tdText(tdHumanizeFactor(factor.factorName))}</td>
+    <td class="td-num">${tdNum(factor.rawScore, 2)}</td>
+    <td class="td-num">${tdNum(factor.weight, 2)}</td>
+    <td class="td-num" style="min-width: 110px;">${tdNum(factor.weightedScore, 3)}
+      <div class="td-bar"><div class="td-bar-fill" style="width: ${share}%;"></div></div></td>
+    <td class="td-explanation">${tdText(factor.explanation)}</td>
+  </tr>`;
+}
+
+function tdFactorTable(decision) {
+  const factors = decision.factorContributions || [];
+  if (factors.length === 0) {
+    return '<div class="td-empty" style="padding: 0.9rem 1rem;">Factor breakdown was not recorded for this ticket.</div>';
+  }
+  return `<table class="table"><thead><tr><th>Factor</th><th class="td-num">Raw (s)</th>`
+    + `<th class="td-num">Weight (w)</th><th class="td-num">Weighted (w &times; s)</th><th>Explanation</th></tr></thead>`
+    + `<tbody>${factors.map(f => tdFactorRow(f, Number(decision.compositeScore))).join('')}</tbody></table>`;
+}
+
+function tdOverrideInfo(decision) {
+  const rules = (decision.rulesApplied || [])
+    .map(rule => `<span class="td-chip">${tdEsc(rule)}</span>`).join('');
+  const rulesHtml = rules
+    ? `<div style="margin-top: 0.85rem;"><div class="td-score-label" style="margin-bottom: 0.4rem;">Policy rules applied</div><div class="td-chips">${rules}</div></div>`
+    : '';
+  const overrideHtml = decision.overriddenBy
+    ? `<div class="td-callout"><strong>Manual override</strong> by ${tdEsc(decision.overriddenBy)} &middot; ${tdDate(decision.calculatedAt)}<br>Reason: ${tdText(decision.overrideReason)}</div>`
+    : '';
+  return (rulesHtml || overrideHtml) ? rulesHtml + overrideHtml : tdEmpty('No policy rules or manual overrides applied.');
+}
+
+function renderTicketDetailPriority(d) {
+  const decision = d.priorityDecision;
+  if (!decision) {
+    tdSetHtml('td-priority-summary', tdEmpty('Priority has not been calculated for this ticket yet.'));
+    tdSetHtml('td-priority-factors', '');
+    tdSetHtml('td-priority-overrides', '');
+    return;
+  }
+  tdSetHtml('td-priority-summary', `
+    <div><div class="td-score-label">Composite score</div>
+      <div class="td-score" title="${tdNum(decision.compositeScore, 4)}">${tdNum(decision.compositeScore, 2)}</div></div>
+    <span class="badge badge-${tdHyphenate(decision.priority)}">${tdText(decision.priority)}</span>
+    ${decision.overriddenBy ? '<span class="text-xs text-muted">priority set manually</span>' : ''}`);
+  tdSetHtml('td-priority-factors', tdFactorTable(decision));
+  tdSetHtml('td-priority-overrides', tdOverrideInfo(decision));
+}
+
+function tdNoteHtml(note) {
+  const internal = note.internalOnly ? '<span class="badge badge-p4">Internal</span>' : '';
+  return `<div class="td-note"><div class="td-note-meta"><strong class="text-main">${tdText(note.authorName)}</strong>`
+    + `<span class="font-mono">${escapeHtml(formatDate(note.createdAt))}</span>${internal}</div>`
+    + `<div class="td-note-text">${tdEsc(note.noteText)}</div></div>`;
+}
+
+function tdResolutionHtml(resolution) {
+  return `<div class="td-resolution"><div class="td-card-title">Resolution</div><dl class="td-dl">${tdRows([
+    ['Root cause', tdText(resolution.rootCause)],
+    ['Corrective actions', tdText(resolution.stepsTaken)],
+    ['Preventive action', tdText(resolution.preventiveAction)],
+    ['Confirmed category', tdText(resolution.confirmedCategory)],
+    ['Resolved by', tdMono(resolution.resolvedBy)],
+    ['Resolved at', tdDate(resolution.resolvedAt)]
+  ])}</dl></div>`;
+}
+
+function renderTicketDetailNotes(d) {
+  const notes = [...(d.notes || [])].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  tdSetHtml('td-notes', notes.length ? notes.map(tdNoteHtml).join('') : tdEmpty('No investigation notes recorded.'));
+  if (d.resolution) {
+    tdSetHtml('td-resolution', tdResolutionHtml(d.resolution));
+  } else if (SOLVED_STATUSES.includes(d.status)) {
+    tdSetHtml('td-resolution', tdEmpty('This ticket has no resolution record.'));
+  } else {
+    tdSetHtml('td-resolution', '');
+  }
+}
+
+function tdStars(rating) {
+  const filled = Math.max(0, Math.min(TICKET_DETAIL_MAX_RATING, Number(rating) || 0));
+  return Array.from({ length: TICKET_DETAIL_MAX_RATING },
+    (_, i) => `<span class="${i < filled ? 'td-star-on' : ''}">&#9733;</span>`).join('');
+}
+
+function renderTicketDetailFeedback(d) {
+  const feedback = d.feedback;
+  if (!feedback) {
+    tdSetHtml('td-feedback', tdEmpty('No feedback has been submitted for this ticket.'));
+    return;
+  }
+  tdSetHtml('td-feedback', `
+    <div class="flex items-center gap-3">
+      <span class="td-stars" aria-label="${tdEsc(feedback.rating)} out of ${TICKET_DETAIL_MAX_RATING} stars">${tdStars(feedback.rating)}</span>
+      <span class="font-semibold">${tdEsc(feedback.rating)} / ${TICKET_DETAIL_MAX_RATING}</span>
+      <span class="text-xs text-dim font-mono">${escapeHtml(formatDate(feedback.submittedAt))}</span>
+    </div>
+    <p class="text-sm text-muted" style="margin-top: 0.4rem;">${feedback.comment ? tdEsc(feedback.comment) : 'No comment left.'}</p>`);
+}
+
+function renderTicketDetailLinked(d) {
+  const linked = [...(d.linkedIncidentIds || [])].sort();
+  const triage = d.needsTriage
+    ? '<span class="badge badge-p2">Needs triage</span>'
+    : '<span class="text-xs text-muted">Not flagged for triage</span>';
+  const chips = linked.length
+    ? `<div class="td-chips">${linked.map(id => `<span class="td-chip">${tdEsc(id)}</span>`).join('')}</div>`
+    : tdEmpty('No linked duplicate tickets.');
+  tdSetHtml('td-linked', `<div class="flex items-center gap-2" style="margin-bottom: 0.6rem;"><span class="text-sm text-muted">Triage flag</span>${triage}</div>${chips}`);
+}
+
+function tdAuditItem(record) {
+  const transition = (record.previousState || record.newState)
+    ? `<span class="badge badge-p4">${tdText(record.previousState)} &rarr; ${tdText(record.newState)}</span>`
+    : '';
+  return `<li class="td-timeline-item"><div class="td-timeline-head"><strong>${tdText(record.action)}</strong>`
+    + `<span class="td-timeline-time">${escapeHtml(formatDate(record.timestamp))}</span>`
+    + `<span class="text-xs text-muted">by ${tdText(record.actorId)}</span>${transition}</div>`
+    + `<div class="td-timeline-desc">${tdEsc(record.description)}</div></li>`;
+}
+
+function renderTicketDetailAudit(d) {
+  const records = d.auditTrail || [];
+  tdSetHtml('td-audit', records.length
+    ? `<ol class="td-timeline">${records.map(tdAuditItem).join('')}</ol>`
+    : tdEmpty('No audit records for this ticket.'));
+}
+
+function renderAdminTicketDetail(d) {
+  renderTicketDetailHeader(d);
+  tdSetText('td-description', d.description || 'No description provided.');
+  renderTicketDetailIdentity(d);
+  renderTicketDetailSla(d);
+  renderTicketDetailPriority(d);
+  renderTicketDetailNotes(d);
+  renderTicketDetailFeedback(d);
+  renderTicketDetailLinked(d);
+  renderTicketDetailAudit(d);
+}
+
+// --- Dialog state, open / close ---
+function isTicketDetailOpen() {
+  const modal = document.getElementById('admin-ticket-detail-modal');
+  return !!modal && !modal.classList.contains('hidden');
+}
+
+function showTicketDetailPanel(panel) {
+  document.getElementById('ticket-detail-loading').classList.toggle('hidden', panel !== 'loading');
+  document.getElementById('ticket-detail-error').classList.toggle('hidden', panel !== 'error');
+  document.getElementById('ticket-detail-content').classList.toggle('hidden', panel !== 'content');
+}
+
+function showTicketDetailLoading(ticketId) {
+  tdSetText('ticket-detail-id', ticketId);
+  tdSetText('ticket-detail-title', '');
+  tdSetHtml('ticket-detail-pills', '');
+  showTicketDetailPanel('loading');
+  document.getElementById('ticket-detail-body').scrollTop = 0;
+  document.getElementById('admin-ticket-detail-modal').classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  document.getElementById('btn-close-ticket-detail').focus();
+}
+
+function showTicketDetailError(message) {
+  tdSetText('ticket-detail-error', `Could not load ticket details: ${message}`);
+  showTicketDetailPanel('error');
+}
+
+async function openAdminTicketDetailModal(ticketId, originElement = null) {
+  const detail = STATE.adminTicketDetail;
+  detail.id = ticketId;
+  detail.origin = originElement;
+  const requestSeq = ++detail.requestSeq;
+  showTicketDetailLoading(ticketId);
+  try {
+    const data = await apiCall('/api/admin/incidents/' + encodeURIComponent(ticketId));
+    if (requestSeq !== detail.requestSeq) return; // closed or superseded while loading
+    renderAdminTicketDetail(data);
+    showTicketDetailPanel('content');
+  } catch (err) {
+    if (requestSeq === detail.requestSeq) showTicketDetailError(err.message);
+  }
+}
+
+function closeAdminTicketDetailModal(options = {}) {
+  const detail = STATE.adminTicketDetail;
+  detail.requestSeq++; // discard any in-flight response
+  document.getElementById('admin-ticket-detail-modal').classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  const origin = detail.origin;
+  detail.id = null;
+  detail.origin = null;
+  if (options.restoreFocus !== false && origin && origin.isConnected) origin.focus();
+}
+
+function handOffFromTicketDetail(openAction) {
+  const ticketId = STATE.adminTicketDetail.id;
+  closeAdminTicketDetailModal({ restoreFocus: false });
+  if (ticketId) openAction(ticketId);
+}
+
+function setupTicketDetailListeners() {
+  const modal = document.getElementById('admin-ticket-detail-modal');
+  if (!modal) return;
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeAdminTicketDetailModal();
+  });
+  document.getElementById('btn-close-ticket-detail').addEventListener('click', () => closeAdminTicketDetailModal());
+  document.getElementById('btn-ticket-detail-close').addEventListener('click', () => closeAdminTicketDetailModal());
+  document.getElementById('btn-ticket-detail-override').addEventListener('click', () => handOffFromTicketDetail(openPriorityOverrideModal));
+  document.getElementById('btn-ticket-detail-reassign').addEventListener('click', () => handOffFromTicketDetail(openReassignModal));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isTicketDetailOpen()) closeAdminTicketDetailModal();
+  });
+}
+
+function bindAdminTicketLinks(container) {
+  container.querySelectorAll('.btn-admin-view-ticket').forEach(link => {
+    const open = () => openAdminTicketDetailModal(link.getAttribute('data-id'), link);
+    link.addEventListener('click', open);
+    link.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    });
+  });
 }

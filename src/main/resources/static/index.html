@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nimbus FinServe :: Intelligent IT Service Management (I-ITSM)</title>
   <!-- Self-Contained Modern Stylesheet (Zero CDN Dependencies, CSP script-src 'self' compliant) -->
-  <link rel="stylesheet" href="/styles.css?v=3.0">
+  <link rel="stylesheet" href="/styles.css?v=3.2">
 </head>
 <body>
 
@@ -972,6 +972,94 @@
     </div>
   </div>
 
+  <!-- ============================================================== -->
+  <!-- ADMIN TICKET INSPECTION DIALOG (populated by app.js) -->
+  <!-- ============================================================== -->
+  <div id="admin-ticket-detail-modal" class="modal-overlay ticket-detail-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-detail-title">
+    <div class="ticket-detail-dialog">
+      <header class="ticket-detail-header">
+        <div class="ticket-detail-heading">
+          <div class="flex items-center flex-wrap gap-2">
+            <span id="ticket-detail-id" class="font-mono font-bold text-cyan text-sm"></span>
+            <div id="ticket-detail-pills" class="flex items-center flex-wrap gap-2"></div>
+          </div>
+          <h2 id="ticket-detail-title" class="ticket-detail-title"></h2>
+        </div>
+        <button type="button" id="btn-close-ticket-detail" class="btn btn-xs btn-secondary" aria-label="Close ticket details">&#10005;</button>
+      </header>
+
+      <div id="ticket-detail-body" class="ticket-detail-body">
+        <div id="ticket-detail-loading" class="td-state text-muted">Loading ticket details...</div>
+        <div id="ticket-detail-error" class="td-state text-red hidden"></div>
+
+        <div id="ticket-detail-content" class="hidden">
+          <section class="td-section td-section-first">
+            <h3 class="td-section-title">Description</h3>
+            <p id="td-description" class="td-description"></p>
+          </section>
+
+          <div class="td-grid">
+            <section class="td-card">
+              <h3 class="td-card-title">Reporter</h3>
+              <dl id="td-reporter" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">IT Service &amp; Criticality</h3>
+              <dl id="td-service" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">Support Team &amp; Technician</h3>
+              <dl id="td-assignment" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">Lifecycle Timestamps</h3>
+              <dl id="td-lifecycle" class="td-dl"></dl>
+            </section>
+          </div>
+
+          <section class="td-section">
+            <h3 class="td-section-title">SLA Tracking &amp; Risk</h3>
+            <div id="td-sla"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Priority Calculation Matrix</h3>
+            <div id="td-priority-summary" class="td-priority-summary"></div>
+            <div id="td-priority-factors" class="table-container"></div>
+            <div id="td-priority-overrides"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Investigation Notes &amp; Resolution</h3>
+            <div id="td-notes"></div>
+            <div id="td-resolution"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Customer Feedback</h3>
+            <div id="td-feedback"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Linked Tickets &amp; Triage</h3>
+            <div id="td-linked"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Audit Trail</h3>
+            <div id="td-audit"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer class="ticket-detail-footer">
+        <button type="button" id="btn-ticket-detail-override" class="btn btn-sm btn-secondary">Override Priority</button>
+        <button type="button" id="btn-ticket-detail-reassign" class="btn btn-sm btn-secondary">Reassign</button>
+        <button type="button" id="btn-ticket-detail-close" class="btn btn-sm btn-primary">Close</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- In-App Notifications Drawer/Modal -->
   <div id="notification-modal" class="modal-overlay hidden">
     <div class="modal-content" style="max-width: 440px;">
@@ -994,6 +1082,6 @@
   <div id="toast-container"></div>
 
   <!-- Application Logic (Self-Contained Vanilla ES6, CSP Compliant) -->
-  <script src="/app.js?v=3.0"></script>
+  <script src="/app.js?v=3.2"></script>
 </body>
 </html>
