@@ -1,5 +1,21 @@
 package com.iitsm.application.service;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.iitsm.domain.event.DomainEvent;
 import com.iitsm.domain.event.DomainEventPublisher;
 import com.iitsm.domain.exception.TechnicianOverloadedException;
@@ -25,20 +41,6 @@ import com.iitsm.domain.strategy.classification.IncidentClassifier;
 import com.iitsm.domain.strategy.classification.ServiceMatcher;
 import com.iitsm.domain.strategy.priority.CompositePriorityCalculator;
 import com.iitsm.domain.strategy.priority.IncidentEvaluationContext;
-import java.time.Clock;
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Pipeline coordinating incident intake, ML classification, service matching,

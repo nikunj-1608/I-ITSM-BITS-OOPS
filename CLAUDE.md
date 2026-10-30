@@ -1,5 +1,9 @@
 # CLAUDE.md - I-ITSM Project Rules & Operating Guidelines
 
+> Last reconciled with the code base: 2026-10-30 (commit `44d1365`). Sections 1 and the Operating Protocol are the
+> project's rules and are unchanged. Sections 0 and 2-7 describe what the code actually does today; where the code
+> departs from a rule, section 1.1 says so instead of hiding it.
+
 ## Operating Protocol & Phase Workflow
 1. **Phase-by-Phase Execution**: Never start a phase until explicit user approval ("proceed to Phase N").
 2. **Phase Start**: Re-read `PROMPT.md`, `CLAUDE.md`, and `docs/DECISIONS.md`. Post a short plan (packages, classes, tests to create) and wait for approval.
@@ -7,6 +11,25 @@
 4. **Pattern & OOP Documentation**: Include a one-line `Pattern:` or `OOP:` note in the Javadoc of every pattern-bearing class (e.g., `Pattern: Strategy. Lets admins swap assignment logic at runtime.`).
 5. **Decisions & Ambiguity**: Record any architectural or design choice in `docs/DECISIONS.md` as an ADR (decision, alternatives, reason).
 6. **Feature Discipline**: Strictly follow specifications. No extra unlisted features. No Lombok on domain entities (records and explicit constructors preferred; Lombok allowed only on DTOs/config).
+
+---
+
+## 0. Project Snapshot
+
+**What it is**: Intelligent IT Service Management for the fictional fintech Nimbus FinServe Inc. Employees raise
+incidents; the system classifies, prioritises (explainably), assigns, escalates and audits them. Course project (CS F213, OOP).
+
+**Run it** (Windows, from the repo root):
+- `.\mvnw spring-boot:run` starts the `dev` profile (default): in-memory H2, demo mode on, deterministic company seed (seed 42), port **8085**.
+- Open `http://localhost:8085/` (Swagger UI: `/swagger-ui.html`, configured via the springdoc dependency and the security allow-list).
+- Every seeded account uses the password **`Password123!`**: `admin@nimbusfinserve.com` (ADMIN-SYS-01), `manager@nimbusfinserve.com` (IT manager), `employee@nimbusfinserve.com` (EMP-DEMO-01), `tech.network@nimbusfinserve.com` (TECH-NET-1), `lead.network@nimbusfinserve.com` (LEAD-NET), plus technicians `tech.net2@`, `tech.desk1@`, etc. The seed creates 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians (24 technicians).
+- Email notifications expect a mail server on `localhost:1025` (Mailpit). If none is running, `EmailChannel` logs a WARN per message; the failure is isolated and never blocks assignment.
+
+**Verify it**: `.\mvnw verify` (currently 248 tests, 0 failures; JaCoCo gate = bundle-wide LINE coverage >= 70%, excluding `domain/demo` and `IitsmApplication`). CI (`.github/workflows/ci.yml`) runs `mvn clean verify -B` on JDK 21. There is no Checkstyle or formatter plugin in the `pom.xml`, so Google Java Style is not enforced by tooling.
+
+**Profiles**: `dev` (default, H2 in-memory), `test` (`src/test/resources/application.yml`, H2, **no auto-seed**), `prod` and `demo` (PostgreSQL; `demo` targets the Docker Compose host `postgres`).
+
+**Docs map**: `docs/01..05-*.md` (analysis, requirements, architecture, technology, patterns), `docs/DECISIONS.md` (ADR-001..011), `docs/phase-1..6-summary.md`, `docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/uml/`, `docs/db/`, `docs/review/`, `docs/testing/`.
 
 ---
 
@@ -53,6 +76,7 @@
     - `EmployeeIncidentView`: stripped of priority, SLA internals, and internal technician notes. Hiding priority is enforced by response type, not UI filtering.
     - `TechnicianIncidentView`: includes queue priority, SLA due times, notes, and state-driven actions.
     - `AdminIncidentView`: complete inspection view including priority factor breakdowns and audit logs.
+    - `AdminIncidentDetailView` (added 2026-10-30, ADR-010): the single-ticket inspection projection. It embeds `AdminIncidentView` (`@JsonUnwrapped`) and adds reporter, IT service, support team, public status, triage flag and last-modified details, so the incident list never pays for them.
 13. **Application-Layer Authorization**:
     - Ownership and role validation happen in application services via `AccessPolicy`, not solely via web security annotations.
     - An employee requesting another user's ticket throws `UnauthorizedOperationException`.
@@ -64,24 +88,39 @@
     - Method lengths under ~25 lines.
     - Zero magic numbers (policies in configuration or domain enums).
 
+### 1.1 Known deviations from the rules (audit of 2026-10-30)
+These are facts about the current code, found by reading it. They are not endorsed exceptions; fixing them is future work.
+
+| Rule | What the code does | Where |
+|---|---|---|
+| 1 Encapsulation | `Incident` has 10 public setters (`setClassificationData`, `setCategory`, `setServiceId`, `setAssignee`, `setResolution`, `setFeedback`, `setReopenCount`, `setSlaTracker`, `setVersion`, `setNeedsTriage`), used by state classes, mappers and the intake pipeline. | `domain/model/Incident.java` |
+| 2 Tell, Don't Ask | About a dozen `getStatus() ==/!=` checks in services. Admin reassignment of `IN_PROGRESS`/`PENDING_INFO` tickets bypasses the state machine with a direct `transitionTo(CLASSIFIED)`. | `AdminIncidentService`, `IncidentLifecycleService`, `IncidentIntakePipeline`, `DuplicateDetectionService`, `ReportingService` |
+| 7 DI | Field-level `@Value` injection (`minConfidence`, seeder `autoSeed`/`seed`). No field `@Autowired` exists. | `IncidentIntakePipeline`, `CompanySeeder` |
+| 8 Clock | `Instant.now()` fallbacks remain in `Incident`, `AgingFactor`, `GlobalExceptionHandler` and the `UserJpaEntity` default. | see files |
+| 9 Exceptions | Two empty `catch (Exception ignored) {}` blocks while building triage suggestions. Other broad catches sit at boundaries (notifications, scheduler, config, login attempts). | `AdminIncidentService` |
+| 10 Collections | The escalation chain does not use a `Deque`. | `domain/chain/escalation` |
+| 15 Style/metrics | Long methods exist (e.g. `IncidentIntakePipeline.processIntake` is ~110 lines); magic numbers remain (`@Scheduled(fixedDelay = 30000, initialDelay = 10000)` in `UnassignedIncidentDispatcher`; keyword confidences 0.90/0.75/0.50/0.20 in `KeywordClassifier`). | see files |
+| 6 Dependency direction | **Better than the rule**: the domain package has no Spring or Jakarta imports at all (enforced by `ArchitectureRegressionTest`). JPA annotations live only in `infrastructure/persistence/entity`. | |
+
 ---
 
 ## 2. Technology Stack & Architectural Decisions (Section 3)
 - **Language**: Java 21 (Records, sealed classes, pattern matching, strong static typing).
-- **Build**: Maven (`mvn clean verify`).
-- **Backend Framework**: Spring Boot 3.3+ (Web, Validation, Data JPA, Security, Mail, Scheduling, Actuator).
-- **Persistence**: PostgreSQL 16 (production/demo profile), H2 (fast in-memory test profile) with Flyway migrations.
+- **Build**: Maven (`mvn clean verify`; wrapper `mvnw`).
+- **Backend Framework**: Spring Boot 3.3.4 (Web, Validation, Data JPA, Security, Mail, Scheduling, Actuator).
+- **Persistence**: H2 in-memory (`dev` and `test` profiles), PostgreSQL (`prod` and `demo` profiles), Flyway migrations (`V1__init_schema.sql`, `V2__add_triage_and_exclusions.sql`). Hibernate runs with `ddl-auto: validate`, so every mapped entity needs a matching Flyway table.
 - **ORM / Querying**: Spring Data JPA + Hibernate; JPA Specifications for dynamic multi-criteria search.
-- **Security**: Spring Security 6 + stateless JWT (`jjwt`), BCrypt password hashing, method-level security, 5-strike account lockout.
-- **Text & Machine Learning Intelligence**: Pure-Java TF-IDF + Cosine Similarity + Multinomial Naive Bayes classifier (self-contained, explainable, zero heavy ML libraries).
+- **Security**: Spring Security 6 + stateless JWT (`jjwt` 0.12.6), BCrypt password hashing, method-level security (`@PreAuthorize`), 5-strike account lockout.
+- **Text & Machine Learning Intelligence**: Pure-Java TF-IDF + Cosine Similarity + Multinomial Naive Bayes classifier (self-contained, explainable, zero heavy ML libraries), trained at startup from `src/main/resources/sim/corpus.csv`.
 - **Notifications**:
-  - Email: `JavaMailSender` adapter targeting Mailpit in dev/demo or external SMTP.
-  - In-App: Persisted notifications table + Server-Sent Events (SSE).
-  - SMS: Simulated notification adapter.
+  - Email: `JavaMailSender` adapter (`EmailChannel`) targeting Mailpit in dev/demo or external SMTP.
+  - In-App: persisted notifications table + Server-Sent Events (`SseEmitterRegistry`, `GET /api/notifications/stream`).
+  - SMS: simulated adapter (`SmsSimulatorChannel`).
 - **API Documentation**: SpringDoc OpenAPI 3 (`/swagger-ui.html`).
-- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS (3 role-based consoles: Employee, Technician, Admin).
-- **Testing**: JUnit 5, Mockito, AssertJ, Spring Boot Test, MockMvc, JaCoCo (≥ 70% coverage on domain and application).
-- **Containerization & CI**: Docker Compose (`app`, `postgres`, `mailpit`), GitHub Actions CI running `mvn verify`.
+- **Frontend**: Embedded Single-Page Application (Vanilla HTML5, CSS3, JavaScript in `src/main/resources/static/`, zero Node.js/npm dependencies, strict CSP compliant (`script-src 'self'`, so **no inline event handlers**), no CDN resources). Six role-based tabs: Employee, Technician, Team Lead, Admin, Simulation, Reports.
+- **Testing**: JUnit 5, Mockito, AssertJ, Spring Boot Test, MockMvc, ArchUnit, GreenMail, JaCoCo (gate: bundle LINE coverage >= 70%).
+- **Test data**: Datafaker for the deterministic company seed (`CompanySeeder`).
+- **Containerization & CI**: Docker Compose (`app`, `postgres`, `mailpit`), GitHub Actions CI running `mvn clean verify -B`.
 
 ---
 
@@ -89,67 +128,169 @@
 
 ### 3.1 Layered Architecture
 ```
-Frontend (React 18: Employee Portal | Technician Console | Admin Command Centre)
+Frontend (Vanilla JS SPA: Employee | Technician | Team Lead | Admin | Simulation | Reports)
        │ (REST + JWT, SSE)
        ▼
 Web Layer (com.iitsm.web)
-       │ (Controllers, Persona DTOs, Mappers, GlobalExceptionHandler)
+       │ (Controllers, Persona DTOs, IncidentDtoMapper, GlobalExceptionHandler)
        ▼
 Application Layer (com.iitsm.application)
-       │ (IncidentService, AssignmentService, PriorityService, SlaService, etc.)
+       │ (IncidentService facade, IncidentIntakePipeline, IncidentLifecycleService, AdminIncidentService,
+       │  AdminIncidentDetailService, TechnicianAssignmentService, UnassignedIncidentDispatcher,
+       │  SlaService, EscalationService, DuplicateDetectionService, ReportingService, ...)
        ▼
-Domain Layer (com.iitsm.domain - Pure Java Core, Zero Spring Imports)
+Domain Layer (com.iitsm.domain - Pure Java Core, Zero Spring/Jakarta Imports)
        ▲ (Ports / Interfaces: Repositories, Publishers, Strategies)
        │
 Infrastructure Layer (com.iitsm.infrastructure)
          (JPA Adapters, Flyway, Security, Notification Adapters, Observers, Schedulers)
 ```
 
-### 3.2 Package Organization
+### 3.2 Package Organization (as it exists)
 ```
 com.iitsm
 ├── domain
-│   ├── model          # Entities (Incident, User, ItService, SlaPolicy) & Value Objects
-│   ├── state          # IncidentState interface, State implementations, IncidentStates registry
-│   ├── strategy       # AssignmentStrategy, PriorityFactor, IncidentClassifier, SimilarityMeasure
-│   ├── policy         # Business rules, CandidateFilter, AccessPolicy
-│   ├── event          # Sealed DomainEvent hierarchy & listener ports
-│   ├── repository     # Domain repository interfaces (ports)
-│   └── exception      # IitsmException hierarchy
+│   ├── model          # Aggregates, entities, value objects (Incident, User hierarchy, ItService, SlaPolicy,
+│   │                  #   SlaTracker, PriorityDecision, FactorContribution, ...)
+│   ├── state          # IncidentState, 9 state classes, IncidentStates registry, PublicStatusMapper
+│   ├── strategy
+│   │   ├── assignment      # AssignmentStrategy + 5 strategies, AssignmentStrategyRegistry, CandidateFilter
+│   │   ├── classification  # IncidentClassifier, KeywordClassifier, NaiveBayesClassifier, CompositeClassifier, ServiceMatcher
+│   │   ├── priority        # PriorityFactor + 6 factors, CompositePriorityCalculator
+│   │   ├── similarity      # SimilarityMeasure, CosineTfIdfSimilarity, JaccardSimilarity
+│   │   └── nlp             # TextNormalizer, TfIdfVectorizer
+│   ├── chain/escalation    # Chain of Responsibility: 4 tier handlers + EscalationChainBuilder
+│   ├── policy         # AccessPolicy (port)
+│   ├── event          # Sealed DomainEvent, DomainEventListener/Publisher, InMemoryDomainEventPublisher
+│   ├── repository     # Repository ports (Incident, User, Technician, ItService, SupportTeam, SlaPolicy, Audit, ...)
+│   ├── exception      # IitsmException hierarchy
+│   └── demo           # DomainLifecycleDemo (excluded from coverage)
 ├── application
-│   ├── service        # Application services orchestrating domain interactions
-│   ├── command        # Command models for write operations
-│   ├── query          # Query models for read operations
-│   └── dto            # Internal application DTOs
+│   ├── service        # Application services (see 3.1), IncidentFactory, UserFactory, AuditService, ...
+│   ├── port           # IncidentSearchPort, RealtimeNotificationPort, TokenPort
+│   ├── policy         # DefaultAccessPolicy
+│   └── dto            # Internal read models (AdminIncidentDetail, TriageQueueItemDto)
 ├── infrastructure
-│   ├── persistence    # Spring Data JPA repositories, JPA entities/adapters, specifications
-│   ├── notification   # InAppChannel, EmailChannel, SmsChannel adapters
-│   ├── security       # JWT auth, user details, AccessPolicy implementations
-│   ├── scheduling     # SLA breach monitors, AgingFactor recomputation
-│   ├── observer       # AuditTrailObserver, NotificationObserver, CorrelationObserver
-│   └── config         # Spring configuration beans
-├── simulation
-│   ├── generator      # Synthetic company & incident data generators
-│   └── scenario       # ScenarioRunner S1-S5 for live demonstrations
+│   ├── persistence    # CompanySeeder; adapter/ (repository adapters), entity/ (JPA entities), mapper/, repository/ (Spring Data), specification/
+│   ├── notification   # EmailChannel, InAppChannel, SmsSimulatorChannel, NotificationRouter/Factory, SseEmitterRegistry
+│   ├── security       # JWT filter/provider, SecurityConfig, user details
+│   ├── scheduling     # SlaMonitoringScheduler
+│   ├── observer       # AuditTrailObserver, NotificationObserver
+│   └── config         # AdjustableClock, DomainEventConfig, IntelligenceConfig
+├── simulation         # SimulationService (scenarios S1-S5), SimulationResult, SimulationStatusDto
 └── web
-    ├── controller     # Persona-specific controllers (Employee, Technician, Admin, Auth)
-    ├── dto            # Persona request/response DTOs (EmployeeIncidentView, etc.)
-    ├── mapper         # Domain-to-DTO mappers
-    └── error          # RestControllerAdvice, ApiError payload
+    ├── controller     # Admin, Auth, Employee, Technician, Notification, PublicConfig, Report, Simulation
+    ├── dto            # Persona views and request/response DTOs
+    ├── mapper         # IncidentDtoMapper
+    └── error          # GlobalExceptionHandler
 ```
+There are no `application/command`, `application/query`, `simulation/generator` or `simulation/scenario` packages; the earlier
+version of this file listed them but they were never created.
 
-### 3.3 Event-Driven Spine (Observer Pattern)
-- Sealed `DomainEvent` hierarchy: `IncidentCreated`, `IncidentClassified`, `PriorityCalculated`, `PriorityOverridden`, `DuplicateDetected`, `IncidentAssigned`, `ReassignmentRequested`, `IncidentAcknowledged`, `InvestigationStarted`, `MoreInfoRequested`, `IncidentResolved`, `ResolutionVerified`, `IncidentReopened`, `IncidentClosed`, `SlaWarning`, `SlaViolated`, `IncidentEscalated`.
-- Observers:
-  - `AuditTrailObserver`: Synchronous, transactional recording of `AuditRecord`.
-  - `NotificationObserver`: Post-commit asynchronous notification dispatching via `NotificationRouter`.
-  - `CorrelationObserver`: Triggers duplicate analysis and impact reassessment upon ticket creation.
+### 3.3 REST surface (base paths)
+`/api/auth` (login, register, me) · `/api/employee/incidents` (raise, list, view, provide-info, verify, reject, feedback) ·
+`/api/technician` (queue, team-queue, dashboard, acknowledge, start-investigation, notes, request-info, resolve, flag-wrong-domain) ·
+`/api/admin` (stats, incidents, `incidents/{id}` detail, assign, override-priority, close, reclassify, duplicates, triage-queue,
+technicians, assignment strategies, unlock user, designation) · `/api/admin/reports` (workload, services, sla, mttr, escalations) ·
+`/api/notifications` (list, read, SSE stream) · `/api/simulation` (status, speed, advance, reset, run scenario) · `/api/public/config`.
 
-### 3.4 State Machine & Lifecycle (State Pattern)
-- States: `NEW` → `CLASSIFIED` → `ASSIGNED` → `ACKNOWLEDGED` → `IN_PROGRESS` ⇄ `PENDING_INFO` → `RESOLVED` → `VERIFIED` → `CLOSED`.
-- Reassignment: `ASSIGNED` / `ACKNOWLEDGED` → `CLASSIFIED` (wrong-domain approved).
-- Reopen: `RESOLVED` → `IN_PROGRESS` (increment `reopenCount`).
-- `Incident` delegates all actions to its current `IncidentState` instance.
+### 3.4 Event-Driven Spine (Observer Pattern)
+- Sealed `DomainEvent` hierarchy (17 events, all present): `IncidentCreated`, `IncidentClassified`, `PriorityCalculated`, `PriorityOverridden`, `DuplicateDetected`, `IncidentAssigned`, `ReassignmentRequested`, `IncidentAcknowledged`, `InvestigationStarted`, `MoreInfoRequested`, `IncidentResolved`, `ResolutionVerified`, `IncidentReopened`, `IncidentClosed`, `SlaWarning`, `SlaViolated`, `IncidentEscalated`.
+- `DomainEventConfig` discovers every `DomainEventListener` bean and registers it with the publisher. Observers that exist:
+  - `AuditTrailObserver`: synchronous recording of `AuditRecord`.
+  - `NotificationObserver`: dispatches notifications through `NotificationRouter` (channel failures are isolated).
+- **There is no `CorrelationObserver`.** Duplicate detection and linking run inside the intake pipeline through `DuplicateDetectionService` (threshold 0.70 over a 72-hour window). The wired `SimilarityMeasure` is `CosineTfIdfSimilarity` (`IntelligenceConfig`); `JaccardSimilarity` exists but is not wired anywhere.
+
+### 3.5 State Machine & Lifecycle (State Pattern)
+`Incident` delegates every action to the `IncidentState` for its current status. Allowed actions per state (from the code):
+
+| State | Allowed actions | Moves to |
+|---|---|---|
+| `NEW` | classify | `CLASSIFIED` |
+| `CLASSIFIED` | assign | `ASSIGNED` |
+| `ASSIGNED` | acknowledge, flagWrongDomain | `ACKNOWLEDGED`, `CLASSIFIED` |
+| `ACKNOWLEDGED` | startInvestigation, flagWrongDomain | `IN_PROGRESS`, `CLASSIFIED` |
+| `IN_PROGRESS` | requestInfo, resolve | `PENDING_INFO`, `RESOLVED` |
+| `PENDING_INFO` | provideInfo | `IN_PROGRESS` |
+| `RESOLVED` | verify, reject | `VERIFIED`, `IN_PROGRESS` (reject = reopen, increments `reopenCount`) |
+| `VERIFIED` | close | `CLOSED` |
+| `CLOSED` | none | |
+
 - Illegal actions throw `InvalidStateTransitionException`.
-- `PublicStatusMapper` projects internal states to Employee 5-step stepper: `NEW`, `ASSIGNED`, `IN PROGRESS`, `RESOLVED`, `CLOSED`.
+- `PublicStatusMapper` projects the 9 internal states to the employee 5-step stepper: `NEW` (NEW, CLASSIFIED), `ASSIGNED` (ASSIGNED, ACKNOWLEDGED), `IN PROGRESS` (IN_PROGRESS, PENDING_INFO), `RESOLVED` (RESOLVED, VERIFIED), `CLOSED`.
+- Admin reassignment (`AdminIncidentService`) returns an `IN_PROGRESS`/`PENDING_INFO` ticket to `CLASSIFIED` by direct transition, outside the state table above (see 1.1).
 
+### 3.6 Intake, Classification & Automatic Assignment (ADR-009)
+`IncidentIntakePipeline.processIntake` runs: classify (keyword + Naive Bayes) → match IT service → duplicate detection → 6-factor priority → SLA policy → assign.
+- **Auto-assignment gate**: a ticket is assigned automatically only when classification confidence >= `iitsm.classification.min-confidence` (0.60). Otherwise it is flagged `needsTriage`, stays `CLASSIFIED`, appears in the admin triage queue, and **`UnassignedIncidentDispatcher` deliberately skips it** (humans own low-confidence tickets).
+- **Why this matters**: Naive Bayes alone is badly overconfident (measured 0.84 to 0.97 on vague text with zero keyword hits), so it must be corroborated by keyword evidence. `CompositeClassifier` therefore caps confidence at 0.55 (-> triage) when: no keyword matched; or exactly one keyword matched outside the title (`KeywordClassifier` 0.50); or the models disagree and keyword confidence is < 0.60; or neither model reaches 0.60. A single keyword **in the title** scores 0.55 and, with Naive Bayes agreeing, passes the gate. Thresholds are named constants in `CompositeClassifier`/`KeywordClassifier`.
+- **Capacity and contention**: candidates come from `findAvailableTechnicians()` (null-safe for NULL status/capacity) then `CandidateFilter`; `TechnicianAssignmentService.tryAssignTechnician` runs in `REQUIRES_NEW` and absorbs only `TechnicianOverloadedException`. Optimistic-lock failures surface at commit, so the pipeline and the dispatcher catch `ObjectOptimisticLockingFailureException` and log a WARN. Unexpected exceptions propagate.
+- **Dispatcher**: `UnassignedIncidentDispatcher` runs every 30 s over `CLASSIFIED`, unassigned, non-triage tickets; one lost lock race does not abort the cycle; an empty technician pool stops the cycle with a WARN.
+- `TechnicianAssignmentService`, `IncidentIntakePipeline`, `UnassignedIncidentDispatcher` all log when no technician has capacity.
+
+### 3.7 Explainable Priority & Its Persistence (ADR-011)
+- `CompositePriorityCalculator` combines 6 `PriorityFactor`s (`ServiceCriticality`, `Impact`, `Urgency`, `ReporterDesignation`, `Aging`, `ReporterHistory`; weights sum to 1.0) plus policy override rules, producing a `PriorityDecision` with `factorContributions`.
+- The breakdown is persisted: `FactorContributionJpaEntity` maps the existing `factor_contributions` table, owned by `IncidentJpaEntity` as an eager, `@OrderBy("id ASC")` **`Set`** (a `List` would create a second eager bag next to `notes` and raise `MultipleBagFetchException`). `IncidentMapper` writes and reads it. Each incident save deletes and re-inserts at most 6 rows. Tickets saved before 2026-10-30 have no stored rows.
+- Manual override (`PriorityDecision.withOverride`) keeps the original factor list and records `overriddenBy`, `overrideReason` and a new `calculatedAt`.
+
+### 3.8 Admin Ticket Inspection (ADR-010)
+- Backend: `GET /api/admin/incidents/{id}` -> `AdminIncidentDetailService.getDetail` (read-only; loads through `IncidentLifecycleService`, so the access policy still applies; resolves reporter, assignee, IT service, support team, audit trail; dangling references become `null`) -> `AdminIncidentDetail` (application read model; `lastModifiedAt()` = newest audit record, since `Incident` has no modification timestamp) -> `IncidentDtoMapper.toAdminDetailView` -> `AdminIncidentDetailView`.
+- Support team rule: the assignee's own team when assigned, otherwise the owning team of the incident's IT service.
+- Frontend: clicking a Ticket ID in the Command Centre table (`.btn-admin-view-ticket` span inside the ID cell, keyboard accessible) opens `#admin-ticket-detail-modal`. Markup is in `index.html` (one empty container per section), styles in `styles.css` (`ticket-detail-*`, `td-*`, `badge-sla-*`, `badge-tier-*`), logic in section "14. Admin Ticket Inspection Dialog" at the end of `app.js` (helpers prefixed `td*`; `openAdminTicketDetailModal`, `closeAdminTicketDetailModal`, `setupTicketDetailListeners`).
+- Behaviour: loading/error/content panels; every dynamic value goes through `escapeHtml`; closes on X, footer Close, backdrop click, Escape and sign-out; returns focus to the clicked ID; discards late responses (`STATE.adminTicketDetail.requestSeq`); footer Override/Reassign close the dialog and call the existing `openPriorityOverrideModal`/`openReassignModal`.
+- SLA display uses the real `SlaStatus` values (`ON_TRACK`, `AT_RISK`, `WARNING`, `BREACHED`, `MET`); a `PENDING_INFO` ticket also shows a "Clock paused" pill. Service criticality is `BusinessCriticality` `TIER_1..4`.
+- The Command Centre table reads `priorityDecision.priority` and `slaTracker.resolutionDueAt` (the list DTO has no `priority`/`slaDeadline` fields).
+
+---
+
+## 4. Testing & Verification Notes
+- Suite: 248 tests in ~50 classes. Layers: domain unit tests, application service tests (Mockito), persistence integration tests (`@SpringBootTest`, H2), MockMvc controller tests, ArchUnit architecture tests, regression tests (`@Tag("regression")`), and a static-resource contract test.
+- **Integration tests share one in-memory H2 database** (`testdb`) and the `test` profile does not auto-seed. Tests that need users/services call `CompanySeeder.seedCompanyData()` when `userRepository.count() == 0`. `IncidentRepositoryAdapterTest` still depends on another class having seeded first and fails when run alone.
+- `AdminTicketDetailModalMarkupTest` guards the `index.html` / `styles.css` / `app.js` contract: required element ids, the dialog is hidden and `role="dialog"` by default, required CSS classes, **no inline `on...=` handlers and no `http(s)://` or `@import`** in the static files, every element id the script looks up exists, and the admin table reads real API fields.
+- Front-end behaviour was verified outside Maven in headless Edge: a DOM harness with captured API JSON (61 checks: null data, out-of-order responses, hostile HTML) and a DevTools-protocol run against the live app with real mouse/keyboard input (21 checks, zero console errors). Those scripts are **not in the repository**.
+- Tests that pin a behaviour on purpose: `CorrectnessRegressionTest.F5` (an ambiguous ticket with one keyword only in the description must go to triage), `AutoAssignmentRegressionTest` (clear ticket assigns at intake; vague ticket stays in triage and the dispatcher skips it; waiting ticket is assigned once capacity frees).
+
+---
+
+## 5. Working Conventions
+- **Line endings**: working copies on this Windows machine are CRLF (git `autocrlf`). When editing files with scripts, preserve CRLF; mixed endings produce noisy diffs.
+- **Static asset cache-busting**: `index.html` references `/styles.css?v=3.2` and `/app.js?v=3.2`. Bump both when either file changes.
+- **No inline handlers, no CDNs** in `index.html` (CSP). Use `addEventListener` and vanilla CSS/SVG/Unicode.
+- **Utility colour classes in tables**: `.table td` sets a colour with higher specificity than `.text-red`; scoped rules (`.table td.text-red`, `.text-cyan`, `.text-muted`) exist so the utilities win inside cells.
+- **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`) rather than a `phase-N-summary.md`.
+- **Commits are local** (`basic-prototype` branch); nothing is pushed unless explicitly requested.
+- Seeded passwords, ports and profiles are listed in section 0; do not hard-code the old `Admin@123` (wrong).
+
+---
+
+## 6. Change Log
+
+### 2026-10-30
+**Fix: automatic ticket assignment restored** - commit `a636e33`, ADR-009, `docs/fix-auto-assignment-summary.md`
+- Cause: the classifier capped confidence at 0.55 for any weak keyword score, so almost every short ticket went to human triage, which the dispatcher never retries. The technician pool was healthy (confirmed by running the app).
+- `KeywordClassifier`: single keyword in the title scores 0.55. `CompositeClassifier`: evidence-based triage cap, named constants.
+- `TechnicianAssignmentService`, `IncidentIntakePipeline`, `UnassignedIncidentDispatcher`: narrowed catch blocks, WARN logs for an empty pool, per-ticket lock handling.
+- `SpringDataUserRepository.findAvailableTechnicians`: null-safe for NULL availability status and NULL capacity.
+- Tests: `CompositeClassifierTest` (9), `TechnicianAssignmentServiceTest` (4), `UnassignedIncidentDispatcherTest` (4), `AvailableTechniciansQueryTest` (2), `AutoAssignmentRegressionTest` (3).
+
+**Feature: admin ticket inspection dialog** - commit `44d1365`, ADR-010 and ADR-011, `docs/admin-ticket-inspection-summary.md`
+- New: `AdminIncidentDetail`, `AdminIncidentDetailService`, `AdminIncidentDetailView`, `IncidentDtoMapper.toAdminDetailView`, `FactorContributionJpaEntity`, the dialog markup/CSS/JS described in 3.8.
+- Changed: `AdminController#getIncidentDetails` now returns `AdminIncidentDetailView` (existing JSON fields unchanged); `IncidentJpaEntity` and `IncidentMapper` persist the factor breakdown.
+- Bugs fixed on the way: priority factor breakdown was never saved; the Command Centre table showed a fake P3 and no SLA deadline for every ticket; unescaped ticket ids in the Override/Reassign buttons; missing badge styles for `CLASSIFIED`, `ACKNOWLEDGED`, `VERIFIED`; breached deadlines were never red.
+- Tests: `AdminIncidentDetailServiceTest` (5), `AdminIncidentDetailMapperTest` (3), `AdminControllerTest` (+1), `FactorContributionPersistenceTest` (3), `AdminTicketDetailModalMarkupTest` (7).
+- Spec corrections made while building: password is `Password123!`; SLA status names and criticality names differ from the original spec; `Incident` has no "last modified" field; resolutions have no "summary" field (`stepsTaken` is shown as "Corrective actions").
+
+**Documentation**: this file reconciled with the code (package structure, observers, REST surface, state table, stack, deviations).
+
+---
+
+## 7. Known Issues & Open Items
+1. **Titles and descriptions are re-escaped on every save/load** (pre-existing, unfixed). `Incident`'s constructor HTML-escapes input and `IncidentMapper.toDomain` re-runs it on each load, so text containing `& < > " '` degrades progressively (`Can't` becomes `Can&#x27;t`, later `Can&amp;#x27;t`). The UI is safe (it escapes on output). The right fix is to escape only on output, not in the domain constructor.
+2. **Actors are stored as emails, not user ids**: note authors, the priority-override actor and "Resolved by" show e.g. `tech.network@nimbusfinserve.com`. Audit `actorId` mixes ids (`SYSTEM`, `EMP-DEMO-01`) and emails.
+3. A priority override on a `CLOSED` ticket is accepted; whether that is allowed is undecided.
+4. Tickets without any clear keyword but a clear IT-service match (e.g. "printer thing") still go to triage; the matched service is not used as classification evidence.
+5. A keyword that appears in a title by accident, with Naive Bayes agreeing, auto-assigns.
+6. Admin dialog: keyboard focus is not trapped inside the dialog; composite score shows 2 decimals while weighted contributions show 3.
+7. Tickets saved before the factor persistence fix show "Factor breakdown was not recorded for this ticket".
+8. Rule deviations listed in section 1.1 (public setters on `Incident`, status checks in services, `Instant.now()` fallbacks, empty catch blocks, magic numbers, no formatter/Checkstyle).
+9. `CLAUDE.md` previously described a React/Vite/Tailwind frontend, a `CorrelationObserver`, `application/command|query` packages and `simulation/generator|scenario` packages. None exist; they were removed from this file.
