@@ -47,8 +47,8 @@ public class IncidentSearchAdapter implements IncidentSearchPort {
         }
 
         return Specification.where(IncidentSpecifications.hasStatus(criteria.status()))
-                .and(IncidentSpecifications.hasPriority(criteria.priority()))
-                .and(IncidentSpecifications.hasCategory(criteria.category()))
+                .and(IncidentSpecifications.hasPriorityIn(criteria.priorities()))
+                .and(IncidentSpecifications.hasCategoryIn(criteria.categories()))
                 .and(IncidentSpecifications.hasServiceId(criteria.serviceId()))
                 .and(IncidentSpecifications.hasAssigneeId(criteria.assigneeId()))
                 .and(IncidentSpecifications.hasReporterId(criteria.reporterId()))

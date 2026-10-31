@@ -1029,13 +1029,13 @@ async function searchAdminIncidents() {
 
   try {
     const query = document.getElementById('admin-search-text').value.trim();
-    const category = document.getElementById('admin-filter-category').value;
-    const priority = document.getElementById('admin-filter-priority').value;
+    const selectedCategories = ADMIN_FILTERS.categories ? ADMIN_FILTERS.categories.getSelected() : [];
+    const selectedPriorities = ADMIN_FILTERS.priorities ? ADMIN_FILTERS.priorities.getSelected() : [];
 
     const params = new URLSearchParams();
     if (query) params.append('query', query);
-    if (category) params.append('category', category);
-    if (priority) params.append('priority', priority);
+    selectedCategories.forEach(category => params.append('category', category));
+    selectedPriorities.forEach(priority => params.append('priority', priority));
 
     const incidents = await apiCall(`/api/admin/incidents?${params.toString()}`);
     renderAdminIncidents(incidents || []);
@@ -2077,6 +2077,7 @@ function setupEventListeners() {
   }
 
   setupTicketDetailListeners();
+  setupAdminFilterMultiSelects();
 }
 
 function updateAiPreview(title, desc) {
@@ -2507,4 +2508,155 @@ function bindAdminTicketLinks(container) {
       }
     });
   });
+}
+
+// ============================================================================
+// 15. Multi-Select Filter Dropdowns (Admin Command Centre)
+// ============================================================================
+const MULTISELECT_MAX_LISTED = 2;
+const ADMIN_FILTERS = { categories: null, priorities: null };
+
+function buildMultiSelectOption(option) {
+  const el = document.createElement('div');
+  el.className = 'multiselect-option';
+  el.setAttribute('role', 'option');
+  el.setAttribute('tabindex', '-1');
+  el.setAttribute('aria-selected', 'false');
+  el.dataset.value = option.value;
+  const box = document.createElement('span');
+  box.className = 'custom-checkbox';
+  box.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.className = 'option-label';
+  label.textContent = option.label || option.value;
+  el.append(box, label);
+  return el;
+}
+
+/**
+ * Turns a `.custom-multiselect` container into a multi-select dropdown. The menu stays open while options are
+ * toggled and closes on an outside click, Escape or Tab. Options are read from the markup (`data-value`), or
+ * built from `options` ([{ value, label }]) when that array is given.
+ * @returns {{getSelected: Function, setSelected: Function, clear: Function, open: Function, close: Function}|null}
+ */
+function initMultiSelect(containerId, options, onChange) {
+  const container = document.getElementById(containerId);
+  const trigger = container && container.querySelector('.multiselect-trigger');
+  const menu = container && container.querySelector('.multiselect-menu');
+  const list = container && container.querySelector('.multiselect-options');
+  const triggerLabel = container && container.querySelector('.trigger-label');
+  if (!trigger || !menu || !list || !triggerLabel) return null;
+
+  if (Array.isArray(options) && options.length > 0) {
+    list.replaceChildren(...options.map(buildMultiSelectOption));
+  }
+  const allLabel = container.getAttribute('data-all-label') || triggerLabel.textContent;
+  const selected = new Set();
+  const optionEls = () => Array.from(list.querySelectorAll('.multiselect-option'));
+  const getSelected = () => optionEls().map(el => el.dataset.value).filter(value => selected.has(value));
+  const isOpen = () => !menu.classList.contains('hidden');
+
+  function render() {
+    optionEls().forEach(el => {
+      const on = selected.has(el.dataset.value);
+      el.setAttribute('aria-selected', on ? 'true' : 'false');
+      el.querySelector('.custom-checkbox').classList.toggle('selected', on);
+    });
+    const values = getSelected();
+    if (values.length === 0) {
+      triggerLabel.textContent = allLabel;
+    } else if (values.length <= MULTISELECT_MAX_LISTED) {
+      triggerLabel.textContent = values.join(', ');
+    } else {
+      triggerLabel.textContent = `${values.length} selected`;
+    }
+  }
+
+  function change(mutate) {
+    const before = getSelected().join('|');
+    mutate();
+    render();
+    if (getSelected().join('|') !== before && typeof onChange === 'function') onChange(getSelected());
+  }
+
+  function setOpen(open) {
+    menu.classList.toggle('hidden', !open);
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function focusOption(index) {
+    const els = optionEls();
+    if (els.length > 0) els[(index + els.length) % els.length].focus();
+  }
+
+  function toggleOption(el) {
+    change(() => {
+      const value = el.dataset.value;
+      if (selected.has(value)) selected.delete(value); else selected.add(value);
+    });
+  }
+
+  trigger.addEventListener('click', () => setOpen(!isOpen()));
+  trigger.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    setOpen(true);
+    focusOption(0);
+  });
+
+  list.addEventListener('click', e => {
+    const el = e.target.closest('.multiselect-option');
+    if (el) toggleOption(el);
+  });
+  list.addEventListener('keydown', e => {
+    const el = e.target.closest('.multiselect-option');
+    if (!el) return;
+    const index = optionEls().indexOf(el);
+    const moves = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: -1 };
+    if (e.key in moves) {
+      e.preventDefault();
+      focusOption(moves[e.key]);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleOption(el);
+    }
+  });
+
+  container.querySelector('.btn-select-all').addEventListener('click', () => {
+    change(() => optionEls().forEach(el => selected.add(el.dataset.value)));
+  });
+  container.querySelector('.btn-clear-all').addEventListener('click', () => change(() => selected.clear()));
+
+  container.addEventListener('keydown', e => {
+    if (!isOpen()) return;
+    if (e.key === 'Escape') {
+      setOpen(false);
+      trigger.focus();
+    } else if (e.key === 'Tab') {
+      setOpen(false);
+    }
+  });
+  document.addEventListener('click', e => {
+    if (isOpen() && !container.contains(e.target)) setOpen(false);
+  });
+
+  render();
+  return {
+    getSelected,
+    setSelected(values) {
+      const known = new Set(optionEls().map(el => el.dataset.value));
+      change(() => {
+        selected.clear();
+        (values || []).filter(value => known.has(value)).forEach(value => selected.add(value));
+      });
+    },
+    clear() { change(() => selected.clear()); },
+    open() { setOpen(true); },
+    close() { setOpen(false); }
+  };
+}
+
+function setupAdminFilterMultiSelects() {
+  ADMIN_FILTERS.categories = initMultiSelect('multiselect-category', null);
+  ADMIN_FILTERS.priorities = initMultiSelect('multiselect-priority', null);
 }

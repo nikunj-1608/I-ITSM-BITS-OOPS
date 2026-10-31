@@ -1518,3 +1518,125 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Multi-Select Filter Dropdowns (Admin Command Centre)
+   Hollow checkbox; selected options show a solid blue dot inside a blue border.
+   ========================================================================== */
+.custom-multiselect {
+  position: relative;
+  display: inline-block;
+}
+
+.multiselect-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 9.5rem;
+  text-align: left;
+}
+
+.multiselect-trigger .trigger-caret {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.multiselect-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.multiselect-trigger[aria-expanded="true"] .trigger-caret {
+  transform: rotate(180deg);
+}
+
+.multiselect-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 45;
+  min-width: 12.5rem;
+  max-width: min(18rem, 90vw);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 0.35rem;
+}
+
+.multiselect-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem 0.4rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.multiselect-header button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.multiselect-header button:hover {
+  text-decoration: underline;
+}
+
+.multiselect-options {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.75rem;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+
+.multiselect-option:hover,
+.multiselect-option:focus-visible {
+  background: var(--bg-card-hover);
+  outline: none;
+}
+
+.multiselect-option[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #94a3b8;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.custom-checkbox.selected,
+.multiselect-option[aria-selected="true"] .custom-checkbox {
+  border-color: var(--primary);
+}
+
+.custom-checkbox.selected::after,
+.multiselect-option[aria-selected="true"] .custom-checkbox::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}

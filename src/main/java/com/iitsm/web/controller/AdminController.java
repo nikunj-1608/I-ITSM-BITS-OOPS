@@ -32,6 +32,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -84,8 +85,8 @@ public class AdminController {
     @GetMapping("/incidents")
     public ResponseEntity<List<AdminIncidentView>> searchIncidents(
             @RequestParam(name = "status", required = false) IncidentStatus status,
-            @RequestParam(name = "priority", required = false) Priority priority,
-            @RequestParam(name = "category", required = false) IncidentCategory category,
+            @RequestParam(name = "priority", required = false) Set<Priority> priorities,
+            @RequestParam(name = "category", required = false) Set<IncidentCategory> categories,
             @RequestParam(name = "serviceId", required = false) String serviceId,
             @RequestParam(name = "assigneeId", required = false) String assigneeId,
             @RequestParam(name = "reporterId", required = false) String reporterId,
@@ -94,7 +95,7 @@ public class AdminController {
             @RequestParam(name = "toDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant toDate) {
 
         SearchService.IncidentSearchCriteria criteria = new SearchService.IncidentSearchCriteria(
-                status, priority, category, serviceId, assigneeId, reporterId, query, fromDate, toDate);
+                status, priorities, categories, serviceId, assigneeId, reporterId, query, fromDate, toDate);
 
         List<Incident> results = searchService.search(criteria);
         List<AdminIncidentView> views = results.stream()

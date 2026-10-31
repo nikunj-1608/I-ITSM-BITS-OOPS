@@ -6,6 +6,7 @@ import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -16,8 +17,8 @@ public interface IncidentSearchPort {
 
     record SearchCriteria(
             IncidentStatus status,
-            Priority priority,
-            IncidentCategory category,
+            Set<Priority> priorities,
+            Set<IncidentCategory> categories,
             String serviceId,
             String assigneeId,
             String reporterId,

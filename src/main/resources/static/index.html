@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nimbus FinServe :: Intelligent IT Service Management (I-ITSM)</title>
   <!-- Self-Contained Modern Stylesheet (Zero CDN Dependencies, CSP script-src 'self' compliant) -->
-  <link rel="stylesheet" href="/styles.css?v=3.2">
+  <link rel="stylesheet" href="/styles.css?v=3.3">
 </head>
 <body>
 
@@ -636,24 +636,48 @@
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <input type="text" id="admin-search-text" class="form-input" style="width: 180px; padding: 0.35rem 0.65rem; font-size: 0.75rem;" placeholder="Search title or ID...">
-                <select id="admin-filter-category" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                  <option value="">All Categories</option>
-                  <option value="HARDWARE">HARDWARE</option>
-                  <option value="SOFTWARE">SOFTWARE</option>
-                  <option value="NETWORK">NETWORK</option>
-                  <option value="DATABASE">DATABASE</option>
-                  <option value="SECURITY">SECURITY</option>
-                  <option value="CLOUD">CLOUD</option>
-                  <option value="ACCESS">ACCESS</option>
-                  <option value="APPLICATION">APPLICATION</option>
-                </select>
-                <select id="admin-filter-priority" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                  <option value="">All Priorities</option>
-                  <option value="P1">P1 (Critical)</option>
-                  <option value="P2">P2 (High)</option>
-                  <option value="P3">P3 (Medium)</option>
-                  <option value="P4">P4 (Low)</option>
-                </select>
+                <!-- Multi-select filters: option values are IncidentCategory / Priority enum names -->
+                <div class="custom-multiselect" id="multiselect-category" data-all-label="All Categories">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All Categories</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="Categories">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="HARDWARE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">HARDWARE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="SOFTWARE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">SOFTWARE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="NETWORK"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">NETWORK</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="DATABASE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">DATABASE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="CLOUD"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">CLOUD</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="SECURITY"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">SECURITY</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="AUTHENTICATION"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">AUTHENTICATION</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="APPLICATION"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">APPLICATION</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="STORAGE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">STORAGE</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-multiselect" id="multiselect-priority" data-all-label="All Priorities">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All Priorities</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="Priorities">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P1"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P1 (Critical)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P2"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P2 (High)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P3"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P3 (Medium)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P4"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P4 (Low)</span></div>
+                    </div>
+                  </div>
+                </div>
                 <button type="button" id="btn-admin-search" class="btn btn-sm btn-secondary">Filter</button>
               </div>
             </div>
@@ -1082,6 +1106,6 @@
   <div id="toast-container"></div>
 
   <!-- Application Logic (Self-Contained Vanilla ES6, CSP Compliant) -->
-  <script src="/app.js?v=3.2"></script>
+  <script src="/app.js?v=3.3"></script>
 </body>
 </html>

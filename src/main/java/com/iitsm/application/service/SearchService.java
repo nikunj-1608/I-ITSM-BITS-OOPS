@@ -8,6 +8,7 @@ import com.iitsm.domain.model.Priority;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,8 @@ public class SearchService {
 
     public record IncidentSearchCriteria(
             IncidentStatus status,
-            Priority priority,
-            IncidentCategory category,
+            Set<Priority> priorities,
+            Set<IncidentCategory> categories,
             String serviceId,
             String assigneeId,
             String reporterId,
@@ -44,8 +45,8 @@ public class SearchService {
         }
         return new IncidentSearchPort.SearchCriteria(
                 c.status(),
-                c.priority(),
-                c.category(),
+                c.priorities(),
+                c.categories(),
                 c.serviceId(),
                 c.assigneeId(),
                 c.reporterId(),

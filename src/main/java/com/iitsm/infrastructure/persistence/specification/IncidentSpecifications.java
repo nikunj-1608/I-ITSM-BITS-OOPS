@@ -5,6 +5,7 @@ import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
 import com.iitsm.infrastructure.persistence.entity.IncidentJpaEntity;
 import java.time.Instant;
+import java.util.Collection;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
@@ -26,6 +27,20 @@ public final class IncidentSpecifications {
 
     public static Specification<IncidentJpaEntity> hasCategory(IncidentCategory category) {
         return (root, query, cb) -> category == null ? null : cb.equal(root.get("category"), category);
+    }
+
+    /** Matches any of the given priorities; a null or empty set applies no filter. */
+    public static Specification<IncidentJpaEntity> hasPriorityIn(Collection<Priority> priorities) {
+        return (root, query, cb) -> (priorities == null || priorities.isEmpty())
+                ? null
+                : root.get("priority").in(priorities);
+    }
+
+    /** Matches any of the given categories; a null or empty set applies no filter. */
+    public static Specification<IncidentJpaEntity> hasCategoryIn(Collection<IncidentCategory> categories) {
+        return (root, query, cb) -> (categories == null || categories.isEmpty())
+                ? null
+                : root.get("category").in(categories);
     }
 
     public static Specification<IncidentJpaEntity> hasServiceId(String serviceId) {

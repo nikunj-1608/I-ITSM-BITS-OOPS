@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iitsm.application.service.IncidentService;
 import com.iitsm.domain.model.Incident;
+import com.iitsm.domain.model.IncidentCategory;
 import com.iitsm.domain.model.Priority;
 import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.model.User;
@@ -96,6 +97,44 @@ class AdminControllerTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("Admin search accepts repeated priority and category params and a single value")
+    void testAdminSearchMultiValueFilters() throws Exception {
+        Priority actual = incident.getPriorityDecision().priority();
+        Priority other = actual == Priority.P1 ? Priority.P4 : Priority.P1;
+        String idMatch = "$[?(@.id=='" + incident.getId() + "')]";
+
+        // Repeated params: ticket's own priority plus another one still matches
+        mockMvc.perform(get("/api/admin/incidents?priority=" + other + "&priority=" + actual)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(idMatch).isNotEmpty());
+
+        // Single value (legacy form) that excludes the ticket
+        mockMvc.perform(get("/api/admin/incidents?priority=" + other)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(idMatch).isEmpty());
+
+        // Category list: the ticket's category and an unrelated one
+        IncidentCategory category = incident.getCategory();
+        IncidentCategory unrelated = category == IncidentCategory.STORAGE ? IncidentCategory.CLOUD : IncidentCategory.STORAGE;
+        mockMvc.perform(get("/api/admin/incidents?category=" + unrelated + "&category=" + category)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(idMatch).isNotEmpty());
+        mockMvc.perform(get("/api/admin/incidents?category=" + unrelated)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(idMatch).isEmpty());
+
+        // Blank value means no filter
+        mockMvc.perform(get("/api/admin/incidents?priority=&category=")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(idMatch).isNotEmpty());
     }
 
     @Test

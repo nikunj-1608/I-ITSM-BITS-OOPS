@@ -148,3 +148,19 @@ This document records architectural, design, and technical decisions made during
   2. *Recompute factors on read*: depends on mutable inputs (reporter history, ticket age), so it would not reproduce what was decided at the time.
   3. *Store the breakdown as JSON on the incident row*: loses queryability and duplicates the existing table.
 - **Reason**: The explainability requirement is only met if the decision that was actually made is what administrators later inspect. Mapping the table that already exists is the smallest change that achieves this and keeps the aggregate boundary intact. Tickets saved before this change have no stored rows; the UI states that the breakdown was not recorded for them.
+
+---
+
+## ADR-012: Multi-Value Priority and Category Filters in Incident Search
+- **Status**: Accepted
+- **Context**: The Admin Command Centre can filter the incident directory by one priority and one category only. Administrators need to view, for example, P1 and P3 tickets together, or NETWORK and HARDWARE tickets together. The search path is `AdminController` -> `SearchService` -> `IncidentSearchPort` -> `IncidentSearchAdapter` -> `IncidentSpecifications`.
+- **Decision**:
+  1. `GET /api/admin/incidents` keeps the parameter names `priority` and `category` but binds them to `Set<Priority>` and `Set<IncidentCategory>`. Clients send repeated parameters (`?priority=P1&priority=P3`). A single value and the comma-separated form still bind, so existing callers are unaffected.
+  2. `SearchService.IncidentSearchCriteria` and `IncidentSearchPort.SearchCriteria` carry `priorities` and `categories` sets. A null or empty set means "no filter".
+  3. `IncidentSpecifications` gains `hasPriorityIn` and `hasCategoryIn` (`IN` predicates). Values within one filter are OR-ed, different filters stay AND-ed. The single-value `hasPriority` and `hasCategory` remain for existing callers and tests.
+  4. Filter categories are the real `IncidentCategory` values. The legacy `ACCESS` option never existed in the enum and made the request fail (an unknown enum value surfaces as HTTP 500 through the global handler's catch-all), so it is not offered.
+- **Alternatives Considered**:
+  1. *Comma-separated single parameter (`priorities=P1,P3`)*: needs custom splitting and a new parameter name; Spring already binds repeated parameters to a collection.
+  2. *Keep single-value fields and add parallel list fields*: two sources of truth per criterion and branching in the adapter.
+  3. *Replace the single-value specifications*: needless churn in tests and any future caller; the new ones cover the single-value case anyway.
+- **Reason**: Reusing the Specification pattern keeps the change inside the infrastructure and application layers, leaves controllers free of logic (rule 11), and is backward compatible with single-value requests.

@@ -16,6 +16,7 @@ import com.iitsm.infrastructure.persistence.repository.SpringDataUserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -162,6 +163,42 @@ class IncidentSpecificationsTest {
         List<IncidentJpaEntity> results = incidentRepository.findAll(composite);
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getId()).isEqualTo("INC-TEST-1");
+    }
+
+    @Test
+    @DisplayName("Filter by several priorities matches any of them")
+    void testFilterByPriorityIn() {
+        Specification<IncidentJpaEntity> spec = IncidentSpecifications.hasPriorityIn(Set.of(Priority.P1, Priority.P4));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-2", "INC-TEST-3");
+    }
+
+    @Test
+    @DisplayName("Filter by several categories matches any of them")
+    void testFilterByCategoryIn() {
+        Specification<IncidentJpaEntity> spec =
+                IncidentSpecifications.hasCategoryIn(Set.of(IncidentCategory.HARDWARE, IncidentCategory.NETWORK));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-1", "INC-TEST-3");
+    }
+
+    @Test
+    @DisplayName("A null or empty priority/category set applies no filter")
+    void testMultiValueFiltersIgnoreNullAndEmpty() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasPriorityIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasPriorityIn(Set.of()))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasCategoryIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasCategoryIn(Set.of()))).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("Multi-value priority and category filters combine with AND between the two filters")
+    void testMultiValueFiltersCombine() {
+        Specification<IncidentJpaEntity> spec = Specification
+                .where(IncidentSpecifications.hasPriorityIn(Set.of(Priority.P1, Priority.P2)))
+                .and(IncidentSpecifications.hasCategoryIn(Set.of(IncidentCategory.NETWORK, IncidentCategory.HARDWARE)));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-1");
     }
 
     private void createUser(String id, String email, UserRole role) {

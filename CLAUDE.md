@@ -1,6 +1,6 @@
 # CLAUDE.md - I-ITSM Project Rules & Operating Guidelines
 
-> Last reconciled with the code base: 2026-10-30 (commit `44d1365`). Sections 1 and the Operating Protocol are the
+> Last reconciled with the code base: 2026-10-31 (branch `bug-fixes`, after commit `e11641e`). Sections 1 and the Operating Protocol are the
 > project's rules and are unchanged. Sections 0 and 2-7 describe what the code actually does today; where the code
 > departs from a rule, section 1.1 says so instead of hiding it.
 
@@ -25,11 +25,11 @@ incidents; the system classifies, prioritises (explainably), assigns, escalates 
 - Every seeded account uses the password **`Password123!`**: `admin@nimbusfinserve.com` (ADMIN-SYS-01), `manager@nimbusfinserve.com` (IT manager), `employee@nimbusfinserve.com` (EMP-DEMO-01), `tech.network@nimbusfinserve.com` (TECH-NET-1), `lead.network@nimbusfinserve.com` (LEAD-NET), plus technicians `tech.net2@`, `tech.desk1@`, etc. The seed creates 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians (24 technicians).
 - Email notifications expect a mail server on `localhost:1025` (Mailpit). If none is running, `EmailChannel` logs a WARN per message; the failure is isolated and never blocks assignment.
 
-**Verify it**: `.\mvnw verify` (currently 248 tests, 0 failures; JaCoCo gate = bundle-wide LINE coverage >= 70%, excluding `domain/demo` and `IitsmApplication`). CI (`.github/workflows/ci.yml`) runs `mvn clean verify -B` on JDK 21. There is no Checkstyle or formatter plugin in the `pom.xml`, so Google Java Style is not enforced by tooling.
+**Verify it**: `.\mvnw verify` (currently 262 tests, 0 failures; JaCoCo gate = bundle-wide LINE coverage >= 70%, excluding `domain/demo` and `IitsmApplication`). CI (`.github/workflows/ci.yml`) runs `mvn clean verify -B` on JDK 21. There is no Checkstyle or formatter plugin in the `pom.xml`, so Google Java Style is not enforced by tooling.
 
 **Profiles**: `dev` (default, H2 in-memory), `test` (`src/test/resources/application.yml`, H2, **no auto-seed**), `prod` and `demo` (PostgreSQL; `demo` targets the Docker Compose host `postgres`).
 
-**Docs map**: `docs/01..05-*.md` (analysis, requirements, architecture, technology, patterns), `docs/DECISIONS.md` (ADR-001..011), `docs/phase-1..6-summary.md`, `docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/uml/`, `docs/db/`, `docs/review/`, `docs/testing/`.
+**Docs map**: `docs/01..05-*.md` (analysis, requirements, architecture, technology, patterns), `docs/DECISIONS.md` (ADR-001..012), `docs/phase-1..6-summary.md`, `docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`, `docs/uml/`, `docs/db/`, `docs/review/`, `docs/testing/`.
 
 ---
 
@@ -190,7 +190,7 @@ version of this file listed them but they were never created.
 ### 3.3 REST surface (base paths)
 `/api/auth` (login, register, me) · `/api/employee/incidents` (raise, list, view, provide-info, verify, reject, feedback) ·
 `/api/technician` (queue, team-queue, dashboard, acknowledge, start-investigation, notes, request-info, resolve, flag-wrong-domain) ·
-`/api/admin` (stats, incidents, `incidents/{id}` detail, assign, override-priority, close, reclassify, duplicates, triage-queue,
+`/api/admin` (stats, incidents (repeated `priority` and `category` params), `incidents/{id}` detail, assign, override-priority, close, reclassify, duplicates, triage-queue,
 technicians, assignment strategies, unlock user, designation) · `/api/admin/reports` (workload, services, sla, mttr, escalations) ·
 `/api/notifications` (list, read, SSE stream) · `/api/simulation` (status, speed, advance, reset, run scenario) · `/api/public/config`.
 
@@ -241,10 +241,15 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 - SLA display uses the real `SlaStatus` values (`ON_TRACK`, `AT_RISK`, `WARNING`, `BREACHED`, `MET`); a `PENDING_INFO` ticket also shows a "Clock paused" pill. Service criticality is `BusinessCriticality` `TIER_1..4`.
 - The Command Centre table reads `priorityDecision.priority` and `slaTracker.resolutionDueAt` (the list DTO has no `priority`/`slaDeadline` fields).
 
+### 3.9 Multi-Select Incident Filters (ADR-012)
+- Backend: `GET /api/admin/incidents` binds `priority` and `category` to `Set<Priority>` / `Set<IncidentCategory>` (repeated params, e.g. `?priority=P1&priority=P3`; one value and blank still work). `SearchService.IncidentSearchCriteria` and `IncidentSearchPort.SearchCriteria` carry `priorities` / `categories`; `IncidentSpecifications.hasPriorityIn` / `hasCategoryIn` use `IN` predicates. Values inside one filter are OR-ed, the two filters are AND-ed, null or empty means no filter.
+- Frontend: `#multiselect-category` and `#multiselect-priority` replace the native selects (markup in `index.html`, `.custom-multiselect` / `.multiselect-*` / `.custom-checkbox` styles in `styles.css`, `initMultiSelect(containerId, options, onChange)` in section 15 of `app.js`). A selected option shows a blue border with a solid blue dot (`var(--primary)`); the menu stays open while toggling and closes on outside click, Escape or Tab. The **Filter** button still triggers the search; toggling only updates the selection and the trigger label.
+- Option values are the real enum names (the old `ACCESS` option never existed in `IncidentCategory`); `MultiSelectFilterMarkupTest` compares the markup with the enums.
+
 ---
 
 ## 4. Testing & Verification Notes
-- Suite: 248 tests in ~50 classes. Layers: domain unit tests, application service tests (Mockito), persistence integration tests (`@SpringBootTest`, H2), MockMvc controller tests, ArchUnit architecture tests, regression tests (`@Tag("regression")`), and a static-resource contract test.
+- Suite: 262 tests in ~53 classes. Layers: domain unit tests, application service tests (Mockito), persistence integration tests (`@SpringBootTest`, H2), MockMvc controller tests, ArchUnit architecture tests, regression tests (`@Tag("regression")`), and a static-resource contract test.
 - **Integration tests share one in-memory H2 database** (`testdb`) and the `test` profile does not auto-seed. Tests that need users/services call `CompanySeeder.seedCompanyData()` when `userRepository.count() == 0`. `IncidentRepositoryAdapterTest` still depends on another class having seeded first and fails when run alone.
 - `AdminTicketDetailModalMarkupTest` guards the `index.html` / `styles.css` / `app.js` contract: required element ids, the dialog is hidden and `role="dialog"` by default, required CSS classes, **no inline `on...=` handlers and no `http(s)://` or `@import`** in the static files, every element id the script looks up exists, and the admin table reads real API fields.
 - Front-end behaviour was verified outside Maven in headless Edge: a DOM harness with captured API JSON (61 checks: null data, out-of-order responses, hostile HTML) and a DevTools-protocol run against the live app with real mouse/keyboard input (21 checks, zero console errors). Those scripts are **not in the repository**.
@@ -254,10 +259,10 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 
 ## 5. Working Conventions
 - **Line endings**: working copies on this Windows machine are CRLF (git `autocrlf`). When editing files with scripts, preserve CRLF; mixed endings produce noisy diffs.
-- **Static asset cache-busting**: `index.html` references `/styles.css?v=3.2` and `/app.js?v=3.2`. Bump both when either file changes.
+- **Static asset cache-busting**: `index.html` references `/styles.css?v=3.3` and `/app.js?v=3.3`. Bump both when either file changes.
 - **No inline handlers, no CDNs** in `index.html` (CSP). Use `addEventListener` and vanilla CSS/SVG/Unicode.
 - **Utility colour classes in tables**: `.table td` sets a colour with higher specificity than `.text-red`; scoped rules (`.table td.text-red`, `.text-cyan`, `.text-muted`) exist so the utilities win inside cells.
-- **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`) rather than a `phase-N-summary.md`.
+- **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`) rather than a `phase-N-summary.md`.
 - **Commits are local** (`basic-prototype` branch); nothing is pushed unless explicitly requested.
 - Seeded passwords, ports and profiles are listed in section 0; do not hard-code the old `Admin@123` (wrong).
 
@@ -282,6 +287,13 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 
 **Documentation**: this file reconciled with the code (package structure, observers, REST surface, state table, stack, deviations).
 
+### 2026-10-31
+**Feature: multi-select Category and Priority filters in the Admin Command Centre** - ADR-012, `docs/multi-select-filters-summary.md` (uncommitted at time of writing)
+- Changed: `AdminController#searchIncidents`, `SearchService`, `IncidentSearchPort`, `IncidentSearchAdapter` (set-valued criteria), `IncidentSpecifications` (+`hasPriorityIn`, `hasCategoryIn`), `index.html`, `styles.css` (new multi-select section), `app.js` (section 15, `searchAdminIncidents`); asset cache-bust now `?v=3.3`.
+- Spec corrections made while building: `ACCESS` is not an `IncidentCategory` (nine real values offered instead); `--accent-blue` does not exist (`--primary` used).
+- Tests: `IncidentSpecificationsTest` (+4), `AdminControllerTest` (+1), `MultiSelectFilterMarkupTest` (9, new). Suite 248 -> 262.
+- Verified in headless Edge against the running app (harness 30 checks, DevTools run 27 checks, zero console errors); those scripts are not in the repository.
+
 ---
 
 ## 7. Known Issues & Open Items
@@ -294,3 +306,5 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 7. Tickets saved before the factor persistence fix show "Factor breakdown was not recorded for this ticket".
 8. Rule deviations listed in section 1.1 (public setters on `Incident`, status checks in services, `Instant.now()` fallbacks, empty catch blocks, magic numbers, no formatter/Checkstyle).
 9. `CLAUDE.md` previously described a React/Vite/Tailwind frontend, a `CorrelationObserver`, `application/command|query` packages and `simulation/generator|scenario` packages. None exist; they were removed from this file.
+10. An unknown enum value in a query parameter (e.g. `/api/admin/incidents?priority=P9`) returns HTTP 500 instead of 400: `GlobalExceptionHandler`'s catch-all handles the type-mismatch exception. Pre-existing, affects every enum request parameter.
+11. Multi-select filters: the selection is not remembered across reload or sign-out, and does not search on change (the **Filter** button does); focus is not trapped in the open menu.
