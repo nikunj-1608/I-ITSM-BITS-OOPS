@@ -184,3 +184,18 @@ This document records architectural, design, and technical decisions made during
   4. *Keep random ids and add a separate display number*: two identifiers per ticket to explain and search.
   5. *Database sequence per department*: needs DDL per new department, which breaks runtime extensibility of the department list.
 - **Reason**: A short, meaningful, permanent id that can be read aloud, sorts by year and department, and is unique through a locked counter row. Keeping the id immutable preserves every reference and every id already quoted in emails, while the display name still gives staff the priority at a glance. The resolver and registry keep the department list open for extension without editing existing classes (OCP).
+
+---
+
+## ADR-014: Employees See Only Non-Sensitive Entries of a Ticket's Activity History
+- **Status**: Accepted
+- **Context**: `EmployeeIncidentView` is built so it cannot carry the ticket's priority, but its activity history was built from every audit record of the ticket. Audit descriptions such as "Calculated priority P3 (Score: 0.3975)" and "Priority changed from P3 to P1" therefore showed employees the priority and score, against the rule that employees never see priority (rule 12). Found while building the staff display name (ADR-013); it was already present before.
+- **Decision**:
+  1. `IncidentDtoMapper.toEmployeeView` keeps only audit entries whose action is in an allow-list (`EMPLOYEE_VISIBLE_AUDIT_ACTIONS`, expressed with the event classes so names cannot drift). Hidden: `PriorityCalculated`, `PriorityOverridden`, `SlaWarning`, `SlaViolated`, `IncidentEscalated` (priority, SLA state, escalation roles/reasons). Everything an employee saw before is still shown, including duplicate and reassignment entries, which do not reveal priority.
+  2. The list is an allow-list, so a new event type is hidden from employees until someone adds it. A test requires every `DomainEvent` type to be either shown or in the hidden set, so adding an event forces that decision.
+  3. Technician and admin views are unchanged; the stored audit records are unchanged.
+- **Alternatives Considered**:
+  1. *Deny-list of the priority events*: smaller diff, but any new event that quotes the priority would leak by default.
+  2. *Store a separate employee-safe description on each audit record*: cleaner long term, needs a migration and changes every event type.
+  3. *Hide duplicate and reassignment entries too*: they expose other ticket ids and a technician's reason, but they do not reveal priority, so they are left for a separate decision.
+- **Reason**: Enforces the privacy rule at the one place that builds the employee projection, with a safe default for future events and no schema change.

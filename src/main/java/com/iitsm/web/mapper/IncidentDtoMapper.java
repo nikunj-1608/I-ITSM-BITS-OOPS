@@ -1,6 +1,7 @@
 package com.iitsm.web.mapper;
 
 import com.iitsm.application.dto.AdminIncidentDetail;
+import com.iitsm.domain.event.DomainEvent;
 import com.iitsm.domain.model.AuditRecord;
 import com.iitsm.domain.model.Employee;
 import com.iitsm.domain.model.FactorContribution;
@@ -30,6 +31,26 @@ import java.util.stream.Collectors;
 public final class IncidentDtoMapper {
 
     private IncidentDtoMapper() {}
+
+    /**
+     * Audit entries an employee may see (allow-list, so a new event type is hidden until it is added
+     * here). Left out on purpose: priority calculation and override, SLA warnings and breaches, and
+     * escalations, because they reveal the ticket's priority or SLA internals. Action names are the
+     * event class names, see AuditTrailObserver.
+     */
+    private static final Set<String> EMPLOYEE_VISIBLE_AUDIT_ACTIONS = Set.of(
+            DomainEvent.IncidentCreated.class.getSimpleName(),
+            DomainEvent.IncidentClassified.class.getSimpleName(),
+            DomainEvent.DuplicateDetected.class.getSimpleName(),
+            DomainEvent.IncidentAssigned.class.getSimpleName(),
+            DomainEvent.ReassignmentRequested.class.getSimpleName(),
+            DomainEvent.IncidentAcknowledged.class.getSimpleName(),
+            DomainEvent.InvestigationStarted.class.getSimpleName(),
+            DomainEvent.MoreInfoRequested.class.getSimpleName(),
+            DomainEvent.IncidentResolved.class.getSimpleName(),
+            DomainEvent.ResolutionVerified.class.getSimpleName(),
+            DomainEvent.IncidentReopened.class.getSimpleName(),
+            DomainEvent.IncidentClosed.class.getSimpleName());
 
     /** Staff-only ticket name with the current priority in front; derived on every render, never stored. */
     private static String displayId(Incident incident) {
@@ -69,6 +90,7 @@ public final class IncidentDtoMapper {
 
         List<EmployeeIncidentView.EmployeeAuditRecordView> safeAuditTrail = (auditRecords != null)
                 ? auditRecords.stream()
+                        .filter(r -> EMPLOYEE_VISIBLE_AUDIT_ACTIONS.contains(r.getAction()))
                         .map(r -> new EmployeeIncidentView.EmployeeAuditRecordView(
                                 r.getAction(),
                                 r.getDescription(),
