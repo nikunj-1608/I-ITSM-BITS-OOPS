@@ -9,7 +9,7 @@ public interface DepartmentCodeResolver {
 
     /**
      * Returns an uppercase code of two to four letters. Never returns null: a blank or
-     * unusable department resolves to a general-purpose code.
+     * unusable department resolves to a miscellaneous code (MISC).
      */
     String codeFor(String department);
 }

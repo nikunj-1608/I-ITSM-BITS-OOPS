@@ -13,7 +13,7 @@ Scope: pure domain types for the new ticket id `DEPT-YEAR-SEQUENCE` (e.g. `FIN-2
 ## Rules enforced
 - Code: 2-4 uppercase letters. Year: four digits. Sequence >= 1, zero-padded to six digits, never truncated (`OPS-2027-1234567` is valid).
 - `parse` trims and upper-cases; rejects blank, legacy `INC-` ids, wrong widths, a zero sequence and a sequence that overflows `long` (all `ValidationException`).
-- Resolver: registered name (case/whitespace-insensitive) -> its code; otherwise first three ASCII letters; fewer than two letters or blank/null -> `GEN`. Resolved codes are always legal for `TicketNumber`.
+- Resolver: registered name (case/whitespace-insensitive) -> its code; otherwise first three ASCII letters; fewer than two letters or blank/null -> `MISC`. Resolved codes are always legal for `TicketNumber`.
 - Domain has no Spring/Jakarta imports (ArchitectureRegressionTest still green).
 
 ## Codes
@@ -21,7 +21,7 @@ Engineering ENG, Finance FIN, HR HR, Sales SAL, Operations OPS, Customer Support
 
 ## Tests added (39 cases, suite 262 -> 301)
 - `TicketNumberTest`: format/padding, wide sequence, parse round-trip, forgiving parse, 10 malformed inputs, null/overflow, `isValid`, constructor invariants, equality.
-- `RegistryDepartmentCodeResolverTest`: 8 seeded codes, normalisation, fallback, unusable input -> `GEN`, validity of every resolved code, runtime registration and override, registration validation.
+- `RegistryDepartmentCodeResolverTest`: 8 seeded codes, normalisation, fallback, unusable input -> `MISC`, validity of every resolved code, runtime registration and override, registration validation.
 
 ## Known gaps (by design, later phases)
 - Nothing uses these types yet; `IncidentFactory` still generates `INC-` ids (Phase 2).

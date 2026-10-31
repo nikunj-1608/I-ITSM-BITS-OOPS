@@ -42,9 +42,9 @@ class RegistryDepartmentCodeResolverTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   ", "7", "A", "42!!", "-"})
-    @DisplayName("blank or letterless departments resolve to the general code")
+    @DisplayName("blank or letterless departments resolve to the MISC code")
     void unusableDepartmentIsGeneral(String department) {
-        assertThat(resolver.codeFor(department)).isEqualTo(RegistryDepartmentCodeResolver.GENERAL_CODE);
+        assertThat(resolver.codeFor(department)).isEqualTo(RegistryDepartmentCodeResolver.MISC_CODE);
     }
 
     @Test

@@ -13,13 +13,13 @@ import java.util.regex.Pattern;
  * nobody has registered, because registration accepts free-text departments.
  *
  * <p>Fallback: the first {@value #FALLBACK_LENGTH} letters of the name, uppercased; names with
- * fewer than {@value TicketNumber#MIN_CODE_LENGTH} letters resolve to {@value #GENERAL_CODE}.
+ * fewer than {@value TicketNumber#MIN_CODE_LENGTH} letters resolve to {@value #MISC_CODE}.
  * Two departments may share a fallback code; ticket numbers stay unique because sequences are
  * counted per code and year.
  */
 public class RegistryDepartmentCodeResolver implements DepartmentCodeResolver {
 
-    public static final String GENERAL_CODE = "GEN";
+    public static final String MISC_CODE = "MISC";
     static final int FALLBACK_LENGTH = 3;
 
     private static final Pattern NON_LETTERS = Pattern.compile("[^A-Za-z]");
@@ -56,7 +56,7 @@ public class RegistryDepartmentCodeResolver implements DepartmentCodeResolver {
     @Override
     public String codeFor(String department) {
         if (department == null || department.trim().isEmpty()) {
-            return GENERAL_CODE;
+            return MISC_CODE;
         }
         String registered = codesByDepartment.get(normalize(department));
         return registered != null ? registered : fallbackCode(department);
@@ -65,7 +65,7 @@ public class RegistryDepartmentCodeResolver implements DepartmentCodeResolver {
     private static String fallbackCode(String department) {
         String letters = NON_LETTERS.matcher(department).replaceAll("").toUpperCase(Locale.ROOT);
         if (letters.length() < TicketNumber.MIN_CODE_LENGTH) {
-            return GENERAL_CODE;
+            return MISC_CODE;
         }
         return letters.substring(0, Math.min(letters.length(), FALLBACK_LENGTH));
     }
