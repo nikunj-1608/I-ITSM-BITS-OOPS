@@ -168,7 +168,7 @@ This document records architectural, design, and technical decisions made during
 ---
 
 ## ADR-013: Department-Based Ticket Numbers (`DEPT-YEAR-SEQUENCE`)
-- **Status**: Accepted (Phase 1 of 5 built: domain types only; persistence, migration and display follow in later phases)
+- **Status**: Accepted (Phases 1-2 of 5 built: domain types, persisted counters and generation for new tickets; legacy migration and priority display follow)
 - **Context**: Ticket ids are `INC-` plus eight random hex characters (`IncidentFactory`). They are unique but carry no meaning, cannot be read out on a call, and give no sense of volume. Employees already have a `department`, and the id is the primary key of `incidents`, referenced by notes, audit records, links, notifications and technician workloads.
 - **Decision**:
   1. The permanent ticket id is `<DEPT>-<YEAR>-<SEQUENCE>`, for example `FIN-2026-000142`. The department is the reporter's department (code of 2-4 uppercase letters), the year comes from the injected `Clock`, and the sequence is a zero-padded counter (minimum six digits, never truncated) kept per department code and per year. It restarts at `000001` each year.
@@ -176,6 +176,7 @@ This document records architectural, design, and technical decisions made during
   3. `TicketNumber` (value object) formats and parses the id. `DepartmentCodeResolver` (Strategy) maps a free-text department to a code; the default `RegistryDepartmentCodeResolver` holds the eight seeded departments (ENG, FIN, HR, SAL, OPS, CSU, LEG, EXE), accepts new registrations at runtime, and falls back to the first three letters of an unregistered name, or `MISC` when the name has fewer than two letters. `TicketSequenceRepository` is the port for the counters.
   4. Priority appears only in a derived, staff-only display name (for example `P2 · FIN-2026-000142`) computed from the current priority when a technician or admin view is rendered. The stored id never changes, and employee views show the plain id, so hiding priority from employees (rule 12) is still enforced by response type. (Phase 4.)
   5. Existing tickets are renamed into the same format by a Flyway migration that also updates every table referencing the id. (Phase 3.)
+  6. Counters live in the `ticket_sequences` table (Flyway V3), one row per department code and year. A number is reserved by `TicketSequenceCounter` in its own short `REQUIRES_NEW` transaction (atomic `UPDATE ... SET last_sequence = last_sequence + 1`, then read; a plain `INSERT` for the first number, retried by the adapter if two callers race to create the row). Intake runs as one long transaction, so locking the counter row inside it would make every raise for a department wait for the previous raise to finish. The accepted cost: a number reserved by an intake that later rolls back is not reused, which leaves a gap.
 - **Alternatives Considered**:
   1. *Category in the id*: category is only a classifier guess at creation; triage and admin reclassification would leave a wrong prefix.
   2. *Priority frozen into the id, or an id that changes with priority*: goes stale on override or aging, or forces rewrites of every reference; either way it shows priority to employees.

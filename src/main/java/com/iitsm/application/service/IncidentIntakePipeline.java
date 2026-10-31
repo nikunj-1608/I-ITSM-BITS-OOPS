@@ -107,7 +107,7 @@ public class IncidentIntakePipeline {
     public Incident processIntake(String reporterIdOrEmail, String title, String description) {
         User reporter = loadUser(reporterIdOrEmail);
 
-        Incident incident = incidentFactory.createIncident(title, description, reporter.getId());
+        Incident incident = incidentFactory.createIncident(title, description, reporter);
         Instant now = clock.instant();
 
         // Step 1: Natural Language & ML Automated Classification

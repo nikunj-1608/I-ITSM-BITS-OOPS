@@ -40,6 +40,7 @@ public class Employee extends User {
         this.designation = Objects.requireNonNull(designation, "Designation cannot be null");
     }
 
+    @Override
     public String getDepartment() {
         return department;
     }

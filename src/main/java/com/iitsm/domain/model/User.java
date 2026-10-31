@@ -38,6 +38,14 @@ public abstract class User {
         this.locked = false;
     }
 
+    /**
+     * Department this user belongs to, or {@code null} for personas that have none (only
+     * employees do). Lets callers ask the user instead of testing its concrete type.
+     */
+    public String getDepartment() {
+        return null;
+    }
+
     public String getId() {
         return id;
     }
