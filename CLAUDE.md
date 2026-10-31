@@ -1,6 +1,6 @@
 # CLAUDE.md - I-ITSM Project Rules & Operating Guidelines
 
-> Last reconciled with the code base: 2026-10-31 (branch `bug-fixes`, after the ticket numbering work, ADR-013 and ADR-014). Sections 1 and the Operating Protocol are the
+> Last reconciled with the code base: 2026-10-31 (branch `bug-fixes`, after the department based ticket numbering work, ADR-013 and ADR-014, last feature commit `8512c7f`). Sections 1 and the Operating Protocol are the
 > project's rules and are unchanged. Sections 0 and 2-7 describe what the code actually does today; where the code
 > departs from a rule, section 1.1 says so instead of hiding it.
 
@@ -136,7 +136,7 @@ Web Layer (com.iitsm.web)
        ▼
 Application Layer (com.iitsm.application)
        │ (IncidentService facade, IncidentIntakePipeline, IncidentLifecycleService, AdminIncidentService,
-       │  AdminIncidentDetailService, TechnicianAssignmentService, UnassignedIncidentDispatcher,
+       │  AdminIncidentDetailService, TechnicianAssignmentService, TicketNumberGenerator, UnassignedIncidentDispatcher,
        │  SlaService, EscalationService, DuplicateDetectionService, ReportingService, ...)
        ▼
 Domain Layer (com.iitsm.domain - Pure Java Core, Zero Spring/Jakarta Imports)
@@ -151,7 +151,7 @@ Infrastructure Layer (com.iitsm.infrastructure)
 com.iitsm
 ├── domain
 │   ├── model          # Aggregates, entities, value objects (Incident, User hierarchy, ItService, SlaPolicy,
-│   │                  #   SlaTracker, PriorityDecision, FactorContribution, ...)
+│   │                  #   SlaTracker, PriorityDecision, FactorContribution, TicketNumber, TicketDisplayName, ...)
 │   ├── state          # IncidentState, 9 state classes, IncidentStates registry, PublicStatusMapper
 │   ├── strategy
 │   │   ├── assignment      # AssignmentStrategy + 5 strategies, AssignmentStrategyRegistry, CandidateFilter
@@ -162,11 +162,11 @@ com.iitsm
 │   ├── chain/escalation    # Chain of Responsibility: 4 tier handlers + EscalationChainBuilder
 │   ├── policy         # AccessPolicy (port), DepartmentCodeResolver (Strategy) + RegistryDepartmentCodeResolver (ticket numbers)
 │   ├── event          # Sealed DomainEvent, DomainEventListener/Publisher, InMemoryDomainEventPublisher
-│   ├── repository     # Repository ports (Incident, User, Technician, ItService, SupportTeam, SlaPolicy, Audit, ...)
+│   ├── repository     # Repository ports (Incident, User, Technician, ItService, SupportTeam, SlaPolicy, Audit, TicketSequence, ...)
 │   ├── exception      # IitsmException hierarchy
 │   └── demo           # DomainLifecycleDemo (excluded from coverage)
 ├── application
-│   ├── service        # Application services (see 3.1), IncidentFactory, UserFactory, AuditService, ...
+│   ├── service        # Application services (see 3.1), IncidentFactory, UserFactory, TicketNumberGenerator, AuditService, ...
 │   ├── port           # IncidentSearchPort, RealtimeNotificationPort, TokenPort
 │   ├── policy         # DefaultAccessPolicy
 │   └── dto            # Internal read models (AdminIncidentDetail, TriageQueueItemDto)
@@ -176,7 +176,7 @@ com.iitsm
 │   ├── security       # JWT filter/provider, SecurityConfig, user details
 │   ├── scheduling     # SlaMonitoringScheduler
 │   ├── observer       # AuditTrailObserver, NotificationObserver
-│   └── config         # AdjustableClock, DomainEventConfig, IntelligenceConfig
+│   └── config         # AdjustableClock, DomainEventConfig, IntelligenceConfig, TicketNumberConfig
 ├── simulation         # SimulationService (scenarios S1-S5), SimulationResult, SimulationStatusDto
 └── web
     ├── controller     # Admin, Auth, Employee, Technician, Notification, PublicConfig, Report, Simulation
@@ -186,6 +186,7 @@ com.iitsm
 ```
 There are no `application/command`, `application/query`, `simulation/generator` or `simulation/scenario` packages; the earlier
 version of this file listed them but they were never created.
+Outside `com.iitsm`: `src/main/java/db/migration/V4__rename_legacy_tickets.java` (Flyway finds Java migrations only in the package `db.migration`; it is a thin wrapper around `LegacyTicketRenamer`). Test support: `src/test/java/com/iitsm/testsupport/TestPostgres.java` (embedded PostgreSQL launcher).
 
 ### 3.3 REST surface (base paths)
 `/api/auth` (login, register, me) · `/api/employee/incidents` (raise, list, view, provide-info, verify, reject, feedback) ·
@@ -262,7 +263,7 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 - The Maven wrapper's 3.9.9 download is incomplete on the development machine; builds there were run with the Maven 3.10.0 already in `~/.m2`.
 - **Integration tests share one in-memory H2 database** (`testdb`) and the `test` profile does not auto-seed. Tests that need users/services call `CompanySeeder.seedCompanyData()` when `userRepository.count() == 0`. `IncidentRepositoryAdapterTest` still depends on another class having seeded first and fails when run alone.
 - `AdminTicketDetailModalMarkupTest` guards the `index.html` / `styles.css` / `app.js` contract: required element ids, the dialog is hidden and `role="dialog"` by default, required CSS classes, **no inline `on...=` handlers and no `http(s)://` or `@import`** in the static files, every element id the script looks up exists, and the admin table reads real API fields.
-- Front-end behaviour was verified outside Maven in headless Edge: a DOM harness with captured API JSON (61 checks: null data, out-of-order responses, hostile HTML) and a DevTools-protocol run against the live app with real mouse/keyboard input (21 checks, zero console errors). Those scripts are **not in the repository**.
+- Front-end behaviour was verified outside Maven in headless Edge: a DOM harness with captured API JSON (61 checks: null data, out-of-order responses, hostile HTML) and a DevTools-protocol run against the live app with real mouse/keyboard input (21 checks, zero console errors). For the staff ticket name (ADR-013) a further DevTools-protocol run in headless Edge, through the real login form as admin, technician and employee, passed 12 of 12 checks (names shown beside the plain id, detail dialog, search by name, nothing on employee screens, no console errors apart from the known `/favicon.ico` 500). Those scripts are **not in the repository**.
 - Tests that pin a behaviour on purpose: `CorrectnessRegressionTest.F5` (an ambiguous ticket with one keyword only in the description must go to triage), `AutoAssignmentRegressionTest` (clear ticket assigns at intake; vague ticket stays in triage and the dispatcher skips it; waiting ticket is assigned once capacity frees).
 
 ---
@@ -272,8 +273,8 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 - **Static asset cache-busting**: `index.html` references `/styles.css?v=3.4` and `/app.js?v=3.4`. Bump both when either file changes.
 - **No inline handlers, no CDNs** in `index.html` (CSP). Use `addEventListener` and vanilla CSS/SVG/Unicode.
 - **Utility colour classes in tables**: `.table td` sets a colour with higher specificity than `.text-red`; scoped rules (`.table td.text-red`, `.text-cyan`, `.text-muted`) exist so the utilities win inside cells.
-- **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`) rather than a `phase-N-summary.md`.
-- **Commits are local** (`basic-prototype` branch); nothing is pushed unless explicitly requested.
+- **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`) rather than a `phase-N-summary.md`. The ticket numbering feature was built in five approved phases and is documented in `docs/ticket-nomenclature-phase-1..5.md` plus ADR-013 and ADR-014.
+- **Commits are local** (current work is on the `bug-fixes` branch); nothing is pushed unless explicitly requested.
 - Seeded passwords, ports and profiles are listed in section 0; do not hard-code the old `Admin@123` (wrong).
 
 ---
@@ -298,17 +299,19 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 **Documentation**: this file reconciled with the code (package structure, observers, REST surface, state table, stack, deviations).
 
 ### 2026-10-31
-**Feature: multi-select Category and Priority filters in the Admin Command Centre** - ADR-012, `docs/multi-select-filters-summary.md` (uncommitted at time of writing)
+**Feature: multi-select Category and Priority filters in the Admin Command Centre** - ADR-012, `docs/multi-select-filters-summary.md` (commit `68b8415`)
 - Changed: `AdminController#searchIncidents`, `SearchService`, `IncidentSearchPort`, `IncidentSearchAdapter` (set-valued criteria), `IncidentSpecifications` (+`hasPriorityIn`, `hasCategoryIn`), `index.html`, `styles.css` (new multi-select section), `app.js` (section 15, `searchAdminIncidents`); asset cache-bust now `?v=3.3`.
 - Spec corrections made while building: `ACCESS` is not an `IncidentCategory` (nine real values offered instead); `--accent-blue` does not exist (`--primary` used).
 - Tests: `IncidentSpecificationsTest` (+4), `AdminControllerTest` (+1), `MultiSelectFilterMarkupTest` (9, new). Suite 248 -> 262.
 - Verified in headless Edge against the running app (harness 30 checks, DevTools run 27 checks, zero console errors); those scripts are not in the repository.
 
-**Feature: department based ticket numbers** - ADR-013, `docs/ticket-nomenclature-phase-1..5.md` (commits `27d7cf0`, `7ac7ac4`, `3b24b0b`, `20fd419`, `75346cb`, `d26c8c8`, then the Phase 5 commit)
+**Feature: department based ticket numbers** - ADR-013, `docs/ticket-nomenclature-phase-1..5.md` (commits `27d7cf0`, `7ac7ac4`, `3b24b0b`, `20fd419`, `75346cb`, `d26c8c8`, `8512c7f`; the privacy fix is `ac10b30`)
 - New: `TicketNumber`, `TicketDisplayName`, `DepartmentCodeResolver`, `RegistryDepartmentCodeResolver`, `TicketSequenceRepository`, `TicketNumberGenerator`, `TicketSequenceRepositoryAdapter`, `TicketSequenceRowCreator`, `TicketSequenceJpaEntity`, `TicketNumberConfig`, `LegacyTicketRenamer`, Flyway `V3` and `V4`, `displayId` on the staff views, the web display (section 3.10).
 - Changed: `IncidentFactory` (takes the reporter, no more random id), `IncidentIntakePipeline` (one line), `User.getDepartment()`, both `loadIncident` helpers, `SearchService`, `IncidentSpecifications.containsText` (also matches the ticket id), `index.html` / `styles.css` / `app.js`; asset cache-bust now `?v=3.4`; `pom.xml` (test dependency `embedded-postgres` 2.0.7).
 - Decisions along the way: gap-free numbers over throughput (a first design reserved numbers in a separate transaction and left gaps); the priority is only in a derived staff display name, never in the stored id; `CorrectnessRegressionTest.F7` now races reporters from two departments, because same-department tickets no longer run in parallel (the second would be linked to the first as a duplicate).
 - Bugs found by the new tests and fixed: first counter row created with `merge` overwrote a concurrent row (duplicate numbers); PostgreSQL could not listen when run from the Temp folder.
+- Tests (suite 262 -> 380, including the privacy fix below): `TicketNumberTest` and `RegistryDepartmentCodeResolverTest` (39 cases), `TicketNumberGeneratorTest` (6), `TicketSequenceRepositoryAdapterTest` (7, incl. rollback gives the number back and parallel callers), `TicketNumberIntakeRegressionTest` (4, incl. failed intake leaves no gap and parallel intakes), `LegacyTicketMigrationH2Test` (8) and `LegacyTicketMigrationPostgresTest` (9, incl. rollback) on a shared base class, `TicketNumberingPostgresRegressionTest` (2, whole application on PostgreSQL), `TicketDisplayNameTest` (21 cases), `TicketDisplayIdMapperTest` (5), `TicketDisplayNameLookupRegressionTest` (2), `TicketDisplayNameMarkupTest` (7), `SearchServiceTest` (+1) and `IncidentSpecificationsTest` (+1). Changed on purpose: `CorrectnessRegressionTest.F7` (two departments) and `MultiSelectFilterMarkupTest` (cache-bust `?v=3.4`).
+- Verified: clean `mvn clean verify` 380 tests, 0 failures, JaCoCo gate met; migration V4 on H2 and on a real PostgreSQL 14; the running app over HTTP and in headless Edge (see section 4). Not verified: a production-sized or the real production database, so back it up and try V4 on a copy first.
 
 **Fix: employees could read their ticket's priority** - ADR-014 (`ac10b30`)
 - The employee activity history showed audit entries such as "Calculated priority P3 (Score: 0.3975)". Now filtered by an allow-list (section 3.10). Tests: `EmployeeAuditTrailPrivacyTest` (5).
