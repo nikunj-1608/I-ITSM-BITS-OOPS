@@ -133,6 +133,14 @@
             <version>2.0.1</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Real PostgreSQL for migration tests (prod/demo run on PostgreSQL); no Docker or install needed -->
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.0.7</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
