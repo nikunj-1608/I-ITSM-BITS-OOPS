@@ -151,6 +151,15 @@ class IncidentSpecificationsTest {
     }
 
     @Test
+    @DisplayName("Filter by text search also matches the ticket id, ignoring case")
+    void testFilterByTextSearchMatchesTicketId() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.containsText("inc-test-2")))
+                .extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-2");
+        assertThat(incidentRepository.findAll(IncidentSpecifications.containsText("INC-TEST-")))
+                .hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
     @DisplayName("Composite specification combines >= 5 criteria effectively")
     void testCompositeSpecification() {
         Specification<IncidentJpaEntity> composite = Specification.where(IncidentSpecifications.hasStatus(IncidentStatus.IN_PROGRESS))

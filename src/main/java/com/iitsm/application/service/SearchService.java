@@ -5,6 +5,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
+import com.iitsm.domain.model.TicketDisplayName;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -50,7 +51,7 @@ public class SearchService {
                 c.serviceId(),
                 c.assigneeId(),
                 c.reporterId(),
-                c.query(),
+                TicketDisplayName.canonicalId(c.query()),
                 c.fromDate(),
                 c.toDate()
         );

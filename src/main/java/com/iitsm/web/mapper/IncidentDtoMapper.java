@@ -9,6 +9,7 @@ import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.SlaTracker;
 import com.iitsm.domain.model.SupportTeam;
+import com.iitsm.domain.model.TicketDisplayName;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.state.IncidentStates;
 import com.iitsm.domain.state.PublicStatusMapper;
@@ -29,6 +30,12 @@ import java.util.stream.Collectors;
 public final class IncidentDtoMapper {
 
     private IncidentDtoMapper() {}
+
+    /** Staff-only ticket name with the current priority in front; derived on every render, never stored. */
+    private static String displayId(Incident incident) {
+        PriorityDecision decision = incident.getPriorityDecision();
+        return TicketDisplayName.of(decision != null ? decision.priority() : null, incident.getId());
+    }
 
     public static EmployeeIncidentView toEmployeeView(
             Incident incident,
@@ -120,6 +127,7 @@ public final class IncidentDtoMapper {
 
         return new TechnicianIncidentView(
                 incident.getId(),
+                displayId(incident),
                 incident.getTitle(),
                 incident.getDescription(),
                 incident.getReporterId(),
@@ -238,6 +246,7 @@ public final class IncidentDtoMapper {
 
         return new AdminIncidentView(
                 incident.getId(),
+                displayId(incident),
                 incident.getTitle(),
                 incident.getDescription(),
                 incident.getReporterId(),

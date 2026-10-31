@@ -14,6 +14,7 @@ import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.ReassignmentRequest;
 import com.iitsm.domain.model.SlaPolicy;
 import com.iitsm.domain.model.Technician;
+import com.iitsm.domain.model.TicketDisplayName;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.policy.AccessPolicy;
 import com.iitsm.domain.repository.IncidentRepository;
@@ -387,8 +388,9 @@ public class AdminIncidentService {
                 .orElseThrow(() -> new ValidationException("userId", "User not found with ID: " + userIdOrEmail));
     }
 
+    /** Accepts the plain ticket id or the staff display name (priority prefix), e.g. P2-FIN-2026-000142. */
     private Incident loadIncident(String incidentId) {
-        return incidentRepository.findById(incidentId)
+        return incidentRepository.findById(TicketDisplayName.canonicalId(incidentId))
                 .orElseThrow(() -> new ServiceNotFoundException("Incident not found: " + incidentId));
     }
 }

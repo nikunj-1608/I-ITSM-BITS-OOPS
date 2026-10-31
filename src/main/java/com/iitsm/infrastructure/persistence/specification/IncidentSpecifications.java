@@ -68,6 +68,7 @@ public final class IncidentSpecifications {
             }
             String pattern = "%" + text.trim().toLowerCase() + "%";
             return cb.or(
+                    cb.like(cb.lower(root.get("id")), pattern),
                     cb.like(cb.lower(root.get("title")), pattern),
                     cb.like(cb.lower(root.get("description")), pattern));
         };

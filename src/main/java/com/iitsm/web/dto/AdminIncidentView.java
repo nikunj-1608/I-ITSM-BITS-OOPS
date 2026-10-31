@@ -14,6 +14,7 @@ import java.util.Set;
  */
 public record AdminIncidentView(
         String id,
+        String displayId,
         String title,
         String description,
         String reporterId,
