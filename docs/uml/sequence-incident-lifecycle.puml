@@ -41,8 +41,9 @@ end box
 == 1. Ticket Creation & Auto-Assignment ==
 Emp -> EmpCtrl: POST /api/employee/incidents\n{title, description}
 EmpCtrl -> Svc: createIncident(reporterId, title, description)
-Svc -> Factory: createIncident(title, description, reporterId)
-Factory --> Svc: incident [NEW]
+Svc -> Factory: createIncident(title, description, reporter)
+Factory -> Factory: issue ticket number DEPT-YEAR-SEQ (department code + year + per-department counter)
+Factory --> Svc: incident [NEW] (id e.g. FIN-2026-000142)
 Svc -> Inc: classify(APPLICATION, serviceId, decision, sla, now)
 Inc -> State: classify() -> transitions to CLASSIFIED
 Svc -> Inc: assign(techId, now)

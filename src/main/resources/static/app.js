@@ -71,6 +71,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Utility: staff ticket name (current priority + id, e.g. P2-FIN-2026-000142), shown alongside the plain id.
+// Only staff API responses carry displayId; nothing is rendered when it is missing or would just repeat the id.
+function ticketNameHtml(ticket, asBlock) {
+  if (!ticket || !ticket.displayId || ticket.displayId === ticket.id) return '';
+  const cls = asBlock ? 'ticket-display-name ticket-display-name-block' : 'ticket-display-name';
+  return `<span class="${cls}" title="Ticket name with its current priority">${escapeHtml(ticket.displayId)}</span>`;
+}
+
 // ============================================================================
 // 2. HTTP Client with Automatic JWT Handling
 // ============================================================================
@@ -770,6 +778,7 @@ function renderTechnicianQueue(queue, isTeamMode = false) {
         <div class="flex items-center justify-between flex-wrap gap-2" style="margin-bottom: 0.5rem;">
           <div class="flex items-center gap-2">
             <span class="font-mono font-bold text-cyan text-xs">${escapeHtml(t.id)}</span>
+            ${ticketNameHtml(t)}
             <span class="badge ${pBadge}">${escapeHtml(t.priority || 'P3')}</span>
             <span class="badge ${sBadge}">${escapeHtml(t.status)}</span>
             <span class="badge" style="background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border);">${escapeHtml(t.category || 'GENERAL')}</span>
@@ -905,6 +914,7 @@ function renderTeamLeadQueues(teamQueue) {
           <div>
             <div class="flex items-center gap-2">
               <span class="font-mono text-cyan text-xs font-bold">${escapeHtml(t.id)}</span>
+              ${ticketNameHtml(t)}
               <span class="badge badge-status-new">${escapeHtml(t.status)}</span>
               <span class="font-semibold text-main text-xs">${escapeHtml(t.title)}</span>
             </div>
@@ -938,6 +948,7 @@ function renderTeamLeadQueues(teamQueue) {
             <div>
               <div class="flex items-center gap-2">
                 <span class="font-mono text-red text-xs font-bold">${escapeHtml(t.id)}</span>
+                ${ticketNameHtml(t)}
                 <span class="badge badge-p1">${escapeHtml(t.priority || 'P1')}</span>
                 <span class="sla-timer-pill ${slaClass}">SLA: ${escapeHtml(t.slaStatus)}</span>
                 <span class="font-semibold text-main text-xs">${escapeHtml(t.title)}</span>
@@ -1055,7 +1066,7 @@ function adminIncidentRowHtml(t) {
 
   return `
       <tr>
-        <td class="font-mono font-bold text-cyan text-xs"><span class="ticket-link cursor-pointer btn-admin-view-ticket" role="button" tabindex="0" title="View full ticket details" data-id="${escapeHtml(t.id)}">${escapeHtml(t.id)}</span></td>
+        <td class="font-mono font-bold text-cyan text-xs"><span class="ticket-link cursor-pointer btn-admin-view-ticket" role="button" tabindex="0" title="View full ticket details" data-id="${escapeHtml(t.id)}">${escapeHtml(t.id)}</span>${ticketNameHtml(t, true)}</td>
         <td class="font-semibold text-main">${escapeHtml(t.title)}</td>
         <td><span class="badge" style="background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border);">${escapeHtml(t.category || 'GENERAL')}</span></td>
         <td>${priorityCell}</td>
@@ -2194,6 +2205,7 @@ function tdSetText(id, text) {
 // --- Section renderers ---
 function renderTicketDetailHeader(d) {
   tdSetText('ticket-detail-id', d.id);
+  tdSetText('ticket-detail-display-name', d.displayId && d.displayId !== d.id ? d.displayId : '');
   tdSetText('ticket-detail-title', d.title);
   const priority = d.priorityDecision ? d.priorityDecision.priority : null;
   tdSetHtml('ticket-detail-pills', [

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nimbus FinServe :: Intelligent IT Service Management (I-ITSM)</title>
   <!-- Self-Contained Modern Stylesheet (Zero CDN Dependencies, CSP script-src 'self' compliant) -->
-  <link rel="stylesheet" href="/styles.css?v=3.3">
+  <link rel="stylesheet" href="/styles.css?v=3.4">
 </head>
 <body>
 
@@ -635,7 +635,7 @@
                 <p class="card-subtitle">Search, filter, inspect, and override incident lifecycles</p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <input type="text" id="admin-search-text" class="form-input" style="width: 180px; padding: 0.35rem 0.65rem; font-size: 0.75rem;" placeholder="Search title or ID...">
+                <input type="text" id="admin-search-text" class="form-input" style="width: 180px; padding: 0.35rem 0.65rem; font-size: 0.75rem;" placeholder="Search title, ID or ticket name...">
                 <!-- Multi-select filters: option values are IncidentCategory / Priority enum names -->
                 <div class="custom-multiselect" id="multiselect-category" data-all-label="All Categories">
                   <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
@@ -1005,6 +1005,7 @@
         <div class="ticket-detail-heading">
           <div class="flex items-center flex-wrap gap-2">
             <span id="ticket-detail-id" class="font-mono font-bold text-cyan text-sm"></span>
+            <span id="ticket-detail-display-name" class="ticket-display-name" title="Ticket name with its current priority"></span>
             <div id="ticket-detail-pills" class="flex items-center flex-wrap gap-2"></div>
           </div>
           <h2 id="ticket-detail-title" class="ticket-detail-title"></h2>
@@ -1106,6 +1107,6 @@
   <div id="toast-container"></div>
 
   <!-- Application Logic (Self-Contained Vanilla ES6, CSP Compliant) -->
-  <script src="/app.js?v=3.3"></script>
+  <script src="/app.js?v=3.4"></script>
 </body>
 </html>

@@ -1084,6 +1084,23 @@ svg {
   border-radius: var(--radius-xs);
 }
 
+/* Staff ticket name (current priority + id), shown alongside the plain id */
+.ticket-display-name {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+  word-break: break-all;
+}
+.ticket-display-name-block {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+}
+.ticket-display-name:empty {
+  display: none;
+}
+
 /* ==========================================================================
    Admin Ticket Inspection Dialog
    ========================================================================== */

@@ -6,6 +6,20 @@ skinparam roundcorner 8
 
 package "com.iitsm.domain.model" {
 
+    class TicketNumber <<ValueObject>> {
+        + departmentCode: String
+        + year: int
+        + sequence: long
+        + format(): String
+        + {static} parse(text: String): TicketNumber
+        + {static} isValid(text: String): boolean
+    }
+
+    class TicketDisplayName <<ValueObject>> {
+        + {static} of(priority: Priority, ticketId: String): String
+        + {static} canonicalId(text: String): String
+    }
+
     abstract class User {
         - id: String
         - name: String
@@ -136,7 +150,22 @@ package "com.iitsm.domain.model" {
     SupportTeam o-- Technician : aggregation
 }
 
+package "com.iitsm.domain.policy" {
+    interface DepartmentCodeResolver <<Strategy>> {
+        + codeFor(department: String): String
+    }
+
+    class RegistryDepartmentCodeResolver <<Registry>> {
+        + register(department: String, code: String): void
+        + codeFor(department: String): String
+    }
+}
+
 package "com.iitsm.domain.repository" {
+    interface TicketSequenceRepository <<Port>> {
+        + next(departmentCode: String, year: int): long
+    }
+
     interface IncidentRepository <<Port>> {
         + save(incident: Incident): Incident
         + findById(id: String): Optional<Incident>
@@ -188,7 +217,14 @@ package "com.iitsm.application.service" {
     }
 
     class IncidentFactory <<Factory>> {
-        + createIncident(title, description, reporterId): Incident
+        + createIncident(title, description, reporter: User): Incident
+    }
+
+    class TicketNumberGenerator <<Service>> {
+        - departmentCodeResolver: DepartmentCodeResolver
+        - sequenceRepository: TicketSequenceRepository
+        - clock: Clock
+        + nextFor(reporter: User): TicketNumber
     }
 
     class UserFactory <<Factory>> {
@@ -196,6 +232,20 @@ package "com.iitsm.application.service" {
         + createTechnician(...): Technician
         + createTeamLead(...): TeamLead
         + createAdministrator(...): Administrator
+    }
+}
+
+package "com.iitsm.infrastructure.persistence" {
+    class TicketSequenceRepositoryAdapter <<Adapter>> {
+        + next(departmentCode: String, year: int): long
+    }
+
+    class TicketSequenceRowCreator {
+        + create(departmentCode: String, year: int): void
+    }
+
+    class LegacyTicketRenamer <<Migration V4>> {
+        + run(): int
     }
 }
 
@@ -509,6 +559,15 @@ package "com.iitsm.simulation" #F5F3FF {
 }
 
 IncidentService --> IncidentFactory
+IncidentFactory --> TicketNumberGenerator
+TicketNumberGenerator --> DepartmentCodeResolver
+TicketNumberGenerator --> TicketSequenceRepository
+TicketNumberGenerator ..> TicketNumber
+RegistryDepartmentCodeResolver ..|> DepartmentCodeResolver
+TicketSequenceRepositoryAdapter ..|> TicketSequenceRepository
+TicketSequenceRepositoryAdapter --> TicketSequenceRowCreator
+LegacyTicketRenamer ..> RegistryDepartmentCodeResolver
+LegacyTicketRenamer ..> TicketNumber
 IncidentService --> IncidentRepository
 IncidentService --> IncidentUrgencyOrdering
 IncidentService --> IncidentClassifier

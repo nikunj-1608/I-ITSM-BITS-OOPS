@@ -168,7 +168,7 @@ This document records architectural, design, and technical decisions made during
 ---
 
 ## ADR-013: Department-Based Ticket Numbers (`DEPT-YEAR-SEQUENCE`)
-- **Status**: Accepted (Phases 1-4 of 5 built: domain types, gap-free counters, generation, migration of existing tickets and the staff display name; UI display follows)
+- **Status**: Accepted (all 5 phases built: domain types, gap-free counters, generation, migration of existing tickets, staff display name, web display)
 - **Context**: Ticket ids are `INC-` plus eight random hex characters (`IncidentFactory`). They are unique but carry no meaning, cannot be read out on a call, and give no sense of volume. Employees already have a `department`, and the id is the primary key of `incidents`, referenced by notes, audit records, links, notifications and technician workloads.
 - **Decision**:
   1. The permanent ticket id is `<DEPT>-<YEAR>-<SEQUENCE>`, for example `FIN-2026-000142`. The department is the reporter's department (code of 2-4 uppercase letters), the year comes from the injected `Clock`, and the sequence is a zero-padded counter (minimum six digits, never truncated) kept per department code and per year. It restarts at `000001` each year.

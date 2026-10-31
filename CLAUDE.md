@@ -1,6 +1,6 @@
 # CLAUDE.md - I-ITSM Project Rules & Operating Guidelines
 
-> Last reconciled with the code base: 2026-10-31 (branch `bug-fixes`, after commit `e11641e`). Sections 1 and the Operating Protocol are the
+> Last reconciled with the code base: 2026-10-31 (branch `bug-fixes`, after the ticket numbering work, ADR-013 and ADR-014). Sections 1 and the Operating Protocol are the
 > project's rules and are unchanged. Sections 0 and 2-7 describe what the code actually does today; where the code
 > departs from a rule, section 1.1 says so instead of hiding it.
 
@@ -25,11 +25,11 @@ incidents; the system classifies, prioritises (explainably), assigns, escalates 
 - Every seeded account uses the password **`Password123!`**: `admin@nimbusfinserve.com` (ADMIN-SYS-01), `manager@nimbusfinserve.com` (IT manager), `employee@nimbusfinserve.com` (EMP-DEMO-01), `tech.network@nimbusfinserve.com` (TECH-NET-1), `lead.network@nimbusfinserve.com` (LEAD-NET), plus technicians `tech.net2@`, `tech.desk1@`, etc. The seed creates 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians (24 technicians).
 - Email notifications expect a mail server on `localhost:1025` (Mailpit). If none is running, `EmailChannel` logs a WARN per message; the failure is isolated and never blocks assignment.
 
-**Verify it**: `.\mvnw verify` (currently 262 tests, 0 failures; JaCoCo gate = bundle-wide LINE coverage >= 70%, excluding `domain/demo` and `IitsmApplication`). CI (`.github/workflows/ci.yml`) runs `mvn clean verify -B` on JDK 21. There is no Checkstyle or formatter plugin in the `pom.xml`, so Google Java Style is not enforced by tooling.
+**Verify it**: `.\mvnw verify` (currently 380 tests, 0 failures; JaCoCo gate = bundle-wide LINE coverage >= 70%, excluding `domain/demo` and `IitsmApplication`). CI (`.github/workflows/ci.yml`) runs `mvn clean verify -B` on JDK 21. There is no Checkstyle or formatter plugin in the `pom.xml`, so Google Java Style is not enforced by tooling.
 
 **Profiles**: `dev` (default, H2 in-memory), `test` (`src/test/resources/application.yml`, H2, **no auto-seed**), `prod` and `demo` (PostgreSQL; `demo` targets the Docker Compose host `postgres`).
 
-**Docs map**: `docs/01..05-*.md` (analysis, requirements, architecture, technology, patterns), `docs/DECISIONS.md` (ADR-001..012), `docs/phase-1..6-summary.md`, `docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`, `docs/uml/`, `docs/db/`, `docs/review/`, `docs/testing/`.
+**Docs map**: `docs/01..05-*.md` (analysis, requirements, architecture, technology, patterns), `docs/DECISIONS.md` (ADR-001..014), `docs/phase-1..6-summary.md`, `docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`, `docs/ticket-nomenclature-phase-1..5.md`, `docs/uml/`, `docs/db/`, `docs/review/`, `docs/testing/`.
 
 ---
 
@@ -108,7 +108,7 @@ These are facts about the current code, found by reading it. They are not endors
 - **Language**: Java 21 (Records, sealed classes, pattern matching, strong static typing).
 - **Build**: Maven (`mvn clean verify`; wrapper `mvnw`).
 - **Backend Framework**: Spring Boot 3.3.4 (Web, Validation, Data JPA, Security, Mail, Scheduling, Actuator).
-- **Persistence**: H2 in-memory (`dev` and `test` profiles), PostgreSQL (`prod` and `demo` profiles), Flyway migrations (`V1__init_schema.sql`, `V2__add_triage_and_exclusions.sql`). Hibernate runs with `ddl-auto: validate`, so every mapped entity needs a matching Flyway table.
+- **Persistence**: H2 in-memory (`dev` and `test` profiles), PostgreSQL (`prod` and `demo` profiles), Flyway migrations (`V1__init_schema.sql`, `V2__add_triage_and_exclusions.sql`, `V3__ticket_sequences.sql`, and the Java migration `db.migration.V4__rename_legacy_tickets`). Hibernate runs with `ddl-auto: validate`, so every mapped entity needs a matching Flyway table.
 - **ORM / Querying**: Spring Data JPA + Hibernate; JPA Specifications for dynamic multi-criteria search.
 - **Security**: Spring Security 6 + stateless JWT (`jjwt` 0.12.6), BCrypt password hashing, method-level security (`@PreAuthorize`), 5-strike account lockout.
 - **Text & Machine Learning Intelligence**: Pure-Java TF-IDF + Cosine Similarity + Multinomial Naive Bayes classifier (self-contained, explainable, zero heavy ML libraries), trained at startup from `src/main/resources/sim/corpus.csv`.
@@ -118,7 +118,7 @@ These are facts about the current code, found by reading it. They are not endors
   - SMS: simulated adapter (`SmsSimulatorChannel`).
 - **API Documentation**: SpringDoc OpenAPI 3 (`/swagger-ui.html`).
 - **Frontend**: Embedded Single-Page Application (Vanilla HTML5, CSS3, JavaScript in `src/main/resources/static/`, zero Node.js/npm dependencies, strict CSP compliant (`script-src 'self'`, so **no inline event handlers**), no CDN resources). Six role-based tabs: Employee, Technician, Team Lead, Admin, Simulation, Reports.
-- **Testing**: JUnit 5, Mockito, AssertJ, Spring Boot Test, MockMvc, ArchUnit, GreenMail, JaCoCo (gate: bundle LINE coverage >= 70%).
+- **Testing**: JUnit 5, Mockito, AssertJ, Spring Boot Test, MockMvc, ArchUnit, GreenMail, embedded PostgreSQL (`io.zonky.test:embedded-postgres`, test scope; real PostgreSQL in the test JVM, no Docker), JaCoCo (gate: bundle LINE coverage >= 70%).
 - **Test data**: Datafaker for the deterministic company seed (`CompanySeeder`).
 - **Containerization & CI**: Docker Compose (`app`, `postgres`, `mailpit`), GitHub Actions CI running `mvn clean verify -B`.
 
@@ -160,7 +160,7 @@ com.iitsm
 │   │   ├── similarity      # SimilarityMeasure, CosineTfIdfSimilarity, JaccardSimilarity
 │   │   └── nlp             # TextNormalizer, TfIdfVectorizer
 │   ├── chain/escalation    # Chain of Responsibility: 4 tier handlers + EscalationChainBuilder
-│   ├── policy         # AccessPolicy (port)
+│   ├── policy         # AccessPolicy (port), DepartmentCodeResolver (Strategy) + RegistryDepartmentCodeResolver (ticket numbers)
 │   ├── event          # Sealed DomainEvent, DomainEventListener/Publisher, InMemoryDomainEventPublisher
 │   ├── repository     # Repository ports (Incident, User, Technician, ItService, SupportTeam, SlaPolicy, Audit, ...)
 │   ├── exception      # IitsmException hierarchy
@@ -171,7 +171,7 @@ com.iitsm
 │   ├── policy         # DefaultAccessPolicy
 │   └── dto            # Internal read models (AdminIncidentDetail, TriageQueueItemDto)
 ├── infrastructure
-│   ├── persistence    # CompanySeeder; adapter/ (repository adapters), entity/ (JPA entities), mapper/, repository/ (Spring Data), specification/
+│   ├── persistence    # CompanySeeder; adapter/ (repository adapters, TicketSequenceRepositoryAdapter), entity/ (JPA entities), mapper/, repository/ (Spring Data), specification/, migration/ (LegacyTicketRenamer, used by Flyway V4)
 │   ├── notification   # EmailChannel, InAppChannel, SmsSimulatorChannel, NotificationRouter/Factory, SseEmitterRegistry
 │   ├── security       # JWT filter/provider, SecurityConfig, user details
 │   ├── scheduling     # SlaMonitoringScheduler
@@ -190,7 +190,7 @@ version of this file listed them but they were never created.
 ### 3.3 REST surface (base paths)
 `/api/auth` (login, register, me) · `/api/employee/incidents` (raise, list, view, provide-info, verify, reject, feedback) ·
 `/api/technician` (queue, team-queue, dashboard, acknowledge, start-investigation, notes, request-info, resolve, flag-wrong-domain) ·
-`/api/admin` (stats, incidents (repeated `priority` and `category` params), `incidents/{id}` detail, assign, override-priority, close, reclassify, duplicates, triage-queue,
+`/api/admin` (stats, incidents (repeated `priority` and `category` params; `query` matches title, description and ticket id/name), `incidents/{id}` detail (id or staff display name), assign, override-priority, close, reclassify, duplicates, triage-queue,
 technicians, assignment strategies, unlock user, designation) · `/api/admin/reports` (workload, services, sla, mttr, escalations) ·
 `/api/notifications` (list, read, SSE stream) · `/api/simulation` (status, speed, advance, reset, run scenario) · `/api/public/config`.
 
@@ -246,10 +246,20 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 - Frontend: `#multiselect-category` and `#multiselect-priority` replace the native selects (markup in `index.html`, `.custom-multiselect` / `.multiselect-*` / `.custom-checkbox` styles in `styles.css`, `initMultiSelect(containerId, options, onChange)` in section 15 of `app.js`). A selected option shows a blue border with a solid blue dot (`var(--primary)`); the menu stays open while toggling and closes on outside click, Escape or Tab. The **Filter** button still triggers the search; toggling only updates the selection and the trigger label.
 - Option values are the real enum names (the old `ACCESS` option never existed in `IncidentCategory`); `MultiSelectFilterMarkupTest` compares the markup with the enums.
 
+### 3.10 Ticket Numbering (ADR-013) and Employee Privacy of the Activity History (ADR-014)
+- **Format**: the incident id is `DEPT-YEAR-SEQUENCE`, e.g. `FIN-2026-000142`: reporter's department code (2-4 letters), creation year from the injected `Clock`, zero-padded sequence (6+ digits, never truncated) that restarts at `000001` each year, counted per department code. Only data fixed at creation is in the id, so it never changes. `TicketNumber` (value object) formats/parses it; `DepartmentCodeResolver` / `RegistryDepartmentCodeResolver` map the free-text department (ENG, FIN, HR, SAL, OPS, CSU, LEG, EXE; unregistered names use their first three letters; blank, non-employee or letterless -> `MISC`).
+- **Generation**: `IncidentIntakePipeline` -> `IncidentFactory.createIncident(title, description, reporter)` -> `TicketNumberGenerator.nextFor(reporter)` -> `TicketSequenceRepository.next(code, year)` (`TicketSequenceRepositoryAdapter`, table `ticket_sequences`, atomic `UPDATE ... + 1` inside the intake transaction, propagation MANDATORY). **No gaps**: a rolled-back intake gives its number back. Cost: tickets of one department and year are created one after another; different departments do not wait for each other. Only creating a missing counter row uses a separate short transaction (`TicketSequenceRowCreator`). `User.getDepartment()` is `null` unless overridden (`Employee`).
+- **Migration of old ids**: Flyway Java migration `V4__rename_legacy_tickets` runs `LegacyTicketRenamer`: renames `INC-XXXXXXXX` tickets (department of the reporter, creation year, creation order, continuing after existing numbers), re-creates the nine foreign keys to `incidents(id)` with `ON UPDATE CASCADE` (names read from JDBC metadata), updates `technician_active_incidents`, `incident_linked_ids.linked_incident_id`, `audit_records.incident_id`, rewrites ids quoted in `notifications` and `audit_records.description`, advances the counters. All or nothing on PostgreSQL; a no-op on a database without old ids. Old `INC-` links stop working after it.
+- **Staff display name**: `TicketDisplayName.of(priority, id)` gives `P2-FIN-2026-000142` (hyphens only). It is computed on every render into `displayId` on `TechnicianIncidentView` and `AdminIncidentView` (and so `AdminIncidentDetailView`), never stored; an override changes it, the id stays. `EmployeeIncidentView` has no such field. `loadIncident` in `IncidentLifecycleService` and `AdminIncidentService` and the admin text search accept the plain id or a complete display name (`TicketDisplayName.canonicalId`); the text search also matches the ticket id.
+- **Web**: `ticketNameHtml(ticket, asBlock)` in `app.js` renders the display name next to the plain id in technician cards, the two team lead lists, the Command Centre table (second line under the clickable id) and the admin detail dialog (`#ticket-detail-display-name`). The plain id stays the link and the key of every button. Employee screens show the plain id only. `TicketDisplayNameMarkupTest` guards this.
+- **Employee activity history (ADR-014)**: `IncidentDtoMapper.toEmployeeView` shows only audit actions in `EMPLOYEE_VISIBLE_AUDIT_ACTIONS` (allow-list). Priority calculation/override, SLA warning/breach and escalation entries are hidden; new event types are hidden by default and `EmployeeAuditTrailPrivacyTest` forces every `DomainEvent` type to be classified.
+
 ---
 
 ## 4. Testing & Verification Notes
-- Suite: 262 tests in ~53 classes. Layers: domain unit tests, application service tests (Mockito), persistence integration tests (`@SpringBootTest`, H2), MockMvc controller tests, ArchUnit architecture tests, regression tests (`@Tag("regression")`), and a static-resource contract test.
+- Suite: 380 tests, 0 failures. Layers: domain unit tests, application service tests (Mockito), persistence integration tests (`@SpringBootTest`, H2), migration tests on H2 and on a real embedded PostgreSQL, MockMvc controller tests, ArchUnit architecture tests, regression tests (`@Tag("regression")`), and static-resource contract tests.
+- **Embedded PostgreSQL** (`com.iitsm.testsupport.TestPostgres`): `LegacyTicketMigrationPostgresTest` and `TicketNumberingPostgresRegressionTest` run the migrations and the whole application on PostgreSQL 14 started in the test JVM. It runs from `target/embedded-pg` with a port bound on 127.0.0.1 and retries, because on the Windows development machine PostgreSQL could not listen when extracted to the Temp folder ("could not listen on IPv4 address 127.0.0.1: Permission denied", connection refused). First start downloads the binaries (Maven Central) and can take about a minute.
+- The Maven wrapper's 3.9.9 download is incomplete on the development machine; builds there were run with the Maven 3.10.0 already in `~/.m2`.
 - **Integration tests share one in-memory H2 database** (`testdb`) and the `test` profile does not auto-seed. Tests that need users/services call `CompanySeeder.seedCompanyData()` when `userRepository.count() == 0`. `IncidentRepositoryAdapterTest` still depends on another class having seeded first and fails when run alone.
 - `AdminTicketDetailModalMarkupTest` guards the `index.html` / `styles.css` / `app.js` contract: required element ids, the dialog is hidden and `role="dialog"` by default, required CSS classes, **no inline `on...=` handlers and no `http(s)://` or `@import`** in the static files, every element id the script looks up exists, and the admin table reads real API fields.
 - Front-end behaviour was verified outside Maven in headless Edge: a DOM harness with captured API JSON (61 checks: null data, out-of-order responses, hostile HTML) and a DevTools-protocol run against the live app with real mouse/keyboard input (21 checks, zero console errors). Those scripts are **not in the repository**.
@@ -259,7 +269,7 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 
 ## 5. Working Conventions
 - **Line endings**: working copies on this Windows machine are CRLF (git `autocrlf`). When editing files with scripts, preserve CRLF; mixed endings produce noisy diffs.
-- **Static asset cache-busting**: `index.html` references `/styles.css?v=3.3` and `/app.js?v=3.3`. Bump both when either file changes.
+- **Static asset cache-busting**: `index.html` references `/styles.css?v=3.4` and `/app.js?v=3.4`. Bump both when either file changes.
 - **No inline handlers, no CDNs** in `index.html` (CSP). Use `addEventListener` and vanilla CSS/SVG/Unicode.
 - **Utility colour classes in tables**: `.table td` sets a colour with higher specificity than `.text-red`; scoped rules (`.table td.text-red`, `.text-cyan`, `.text-muted`) exist so the utilities win inside cells.
 - **Non-phase work** (bug fixes, features) is documented with an ADR in `docs/DECISIONS.md` and a named summary file (`docs/fix-auto-assignment-summary.md`, `docs/admin-ticket-inspection-summary.md`, `docs/multi-select-filters-summary.md`) rather than a `phase-N-summary.md`.
@@ -294,6 +304,15 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 - Tests: `IncidentSpecificationsTest` (+4), `AdminControllerTest` (+1), `MultiSelectFilterMarkupTest` (9, new). Suite 248 -> 262.
 - Verified in headless Edge against the running app (harness 30 checks, DevTools run 27 checks, zero console errors); those scripts are not in the repository.
 
+**Feature: department based ticket numbers** - ADR-013, `docs/ticket-nomenclature-phase-1..5.md` (commits `27d7cf0`, `7ac7ac4`, `3b24b0b`, `20fd419`, `75346cb`, `d26c8c8`, then the Phase 5 commit)
+- New: `TicketNumber`, `TicketDisplayName`, `DepartmentCodeResolver`, `RegistryDepartmentCodeResolver`, `TicketSequenceRepository`, `TicketNumberGenerator`, `TicketSequenceRepositoryAdapter`, `TicketSequenceRowCreator`, `TicketSequenceJpaEntity`, `TicketNumberConfig`, `LegacyTicketRenamer`, Flyway `V3` and `V4`, `displayId` on the staff views, the web display (section 3.10).
+- Changed: `IncidentFactory` (takes the reporter, no more random id), `IncidentIntakePipeline` (one line), `User.getDepartment()`, both `loadIncident` helpers, `SearchService`, `IncidentSpecifications.containsText` (also matches the ticket id), `index.html` / `styles.css` / `app.js`; asset cache-bust now `?v=3.4`; `pom.xml` (test dependency `embedded-postgres` 2.0.7).
+- Decisions along the way: gap-free numbers over throughput (a first design reserved numbers in a separate transaction and left gaps); the priority is only in a derived staff display name, never in the stored id; `CorrectnessRegressionTest.F7` now races reporters from two departments, because same-department tickets no longer run in parallel (the second would be linked to the first as a duplicate).
+- Bugs found by the new tests and fixed: first counter row created with `merge` overwrote a concurrent row (duplicate numbers); PostgreSQL could not listen when run from the Temp folder.
+
+**Fix: employees could read their ticket's priority** - ADR-014 (`ac10b30`)
+- The employee activity history showed audit entries such as "Calculated priority P3 (Score: 0.3975)". Now filtered by an allow-list (section 3.10). Tests: `EmployeeAuditTrailPrivacyTest` (5).
+
 ---
 
 ## 7. Known Issues & Open Items
@@ -308,3 +327,7 @@ technicians, assignment strategies, unlock user, designation) · `/api/admin/rep
 9. `CLAUDE.md` previously described a React/Vite/Tailwind frontend, a `CorrelationObserver`, `application/command|query` packages and `simulation/generator|scenario` packages. None exist; they were removed from this file.
 10. An unknown enum value in a query parameter (e.g. `/api/admin/incidents?priority=P9`) returns HTTP 500 instead of 400: `GlobalExceptionHandler`'s catch-all handles the type-mismatch exception. Pre-existing, affects every enum request parameter.
 11. Multi-select filters: the selection is not remembered across reload or sign-out, and does not search on change (the **Filter** button does); focus is not trapped in the open menu.
+12. Ticket numbers: the department is free text (a typo gets its own fallback code and counter); technicians or admins raising a ticket get `MISC`; `DomainLifecycleDemo` still uses a hard-coded `INC-1001`; tickets of one department and year are created one after another (gap-free numbering); old `INC-` links, bookmarks and ids in already-sent emails stop working after migration V4; user-written text that mentions an old id is not rewritten.
+13. Employees still see the "marked as duplicate of ..." and "technician requested reassignment: ..." entries of the activity history (not priority related, so left alone by ADR-014); the first can name another ticket.
+14. Notification and email texts for staff still use the plain ticket id, not the display name; the triage queue (`TriageQueueItemDto`) has no `displayId`.
+15. `GET /favicon.ico` returns HTTP 500 (JSON error) instead of 404, because `GlobalExceptionHandler`'s catch-all handles the missing static resource; the page declares no favicon so every browser load logs a failed request. Pre-existing, same cause as item 10.

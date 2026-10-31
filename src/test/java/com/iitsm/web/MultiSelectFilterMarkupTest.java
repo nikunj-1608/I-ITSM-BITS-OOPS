@@ -147,10 +147,10 @@ class MultiSelectFilterMarkupTest {
     }
 
     @Test
-    @DisplayName("Static assets are cache-busted to the version that carries the multi-select styles")
+    @DisplayName("Static assets are cache-busted to a version that carries the multi-select styles (3.3 or newer)")
     void assetsAreCacheBusted() {
-        assertThat(indexHtml).contains("/styles.css?v=3.3").contains("/app.js?v=3.3")
-                .doesNotContain("?v=3.2");
+        assertThat(indexHtml).contains("/styles.css?v=3.4").contains("/app.js?v=3.4")
+                .doesNotContain("?v=3.2").doesNotContain("?v=3.3");
     }
 
     private static String rule(String selector) {
