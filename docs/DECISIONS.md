@@ -164,3 +164,22 @@ This document records architectural, design, and technical decisions made during
   2. *Keep single-value fields and add parallel list fields*: two sources of truth per criterion and branching in the adapter.
   3. *Replace the single-value specifications*: needless churn in tests and any future caller; the new ones cover the single-value case anyway.
 - **Reason**: Reusing the Specification pattern keeps the change inside the infrastructure and application layers, leaves controllers free of logic (rule 11), and is backward compatible with single-value requests.
+
+---
+
+## ADR-013: Department-Based Ticket Numbers (`DEPT-YEAR-SEQUENCE`)
+- **Status**: Accepted (Phase 1 of 5 built: domain types only; persistence, migration and display follow in later phases)
+- **Context**: Ticket ids are `INC-` plus eight random hex characters (`IncidentFactory`). They are unique but carry no meaning, cannot be read out on a call, and give no sense of volume. Employees already have a `department`, and the id is the primary key of `incidents`, referenced by notes, audit records, links, notifications and technician workloads.
+- **Decision**:
+  1. The permanent ticket id is `<DEPT>-<YEAR>-<SEQUENCE>`, for example `FIN-2026-000142`. The department is the reporter's department (code of 2-4 uppercase letters), the year comes from the injected `Clock`, and the sequence is a zero-padded counter (minimum six digits, never truncated) kept per department code and per year. It restarts at `000001` each year.
+  2. Only data that is known and fixed at creation goes into the id. Category, priority, team and assignee are excluded because they are assigned after creation and change later (reclassification, override, reassignment); an id that tracks them would have to be rewritten across every referencing table.
+  3. `TicketNumber` (value object) formats and parses the id. `DepartmentCodeResolver` (Strategy) maps a free-text department to a code; the default `RegistryDepartmentCodeResolver` holds the eight seeded departments (ENG, FIN, HR, SAL, OPS, CSU, LEG, EXE), accepts new registrations at runtime, and falls back to the first three letters of an unregistered name, or `GEN` when the name has fewer than two letters. `TicketSequenceRepository` is the port for the counters.
+  4. Priority appears only in a derived, staff-only display name (for example `P2 · FIN-2026-000142`) computed from the current priority when a technician or admin view is rendered. The stored id never changes, and employee views show the plain id, so hiding priority from employees (rule 12) is still enforced by response type. (Phase 4.)
+  5. Existing tickets are renamed into the same format by a Flyway migration that also updates every table referencing the id. (Phase 3.)
+- **Alternatives Considered**:
+  1. *Category in the id*: category is only a classifier guess at creation; triage and admin reclassification would leave a wrong prefix.
+  2. *Priority frozen into the id, or an id that changes with priority*: goes stale on override or aging, or forces rewrites of every reference; either way it shows priority to employees.
+  3. *Date-based `INC-YYYYMMDD-NNNN`*: no department, and a daily reset makes the counter meaningless.
+  4. *Keep random ids and add a separate display number*: two identifiers per ticket to explain and search.
+  5. *Database sequence per department*: needs DDL per new department, which breaks runtime extensibility of the department list.
+- **Reason**: A short, meaningful, permanent id that can be read aloud, sorts by year and department, and is unique through a locked counter row. Keeping the id immutable preserves every reference and every id already quoted in emails, while the display name still gives staff the priority at a glance. The resolver and registry keep the department list open for extension without editing existing classes (OCP).
