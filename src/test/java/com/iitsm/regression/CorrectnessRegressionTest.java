@@ -288,11 +288,14 @@ public class CorrectnessRegressionTest {
         java.util.concurrent.atomic.AtomicReference<Throwable> threadError = new java.util.concurrent.atomic.AtomicReference<>();
         java.util.List<Incident> createdList = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-        Runnable task = () -> {
+        // The two reporters belong to different departments on purpose: tickets of one department are
+        // issued one transaction at a time (gap-free ticket numbers), so a same-department pair could no
+        // longer race, and the second would be linked to the first as a duplicate and inherit its assignee.
+        java.util.function.Function<String, Runnable> taskFor = reporter -> () -> {
             try {
                 latch.await();
                 Incident inc = incidentService.createIncident(
-                        "employee@nimbusfinserve.com",
+                        reporter,
                         "Concurrent High Priority Issue " + java.util.UUID.randomUUID(),
                         "Critical production gateway connection failure requiring immediate dispatch"
                 );
@@ -303,8 +306,8 @@ public class CorrectnessRegressionTest {
         };
 
         try {
-            executor.submit(task);
-            executor.submit(task);
+            executor.submit(taskFor.apply("employee@nimbusfinserve.com"));
+            executor.submit(taskFor.apply("ceo@nimbusfinserve.com"));
             latch.countDown();
             executor.shutdown();
             executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);

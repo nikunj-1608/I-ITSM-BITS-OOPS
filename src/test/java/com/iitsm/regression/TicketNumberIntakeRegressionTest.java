@@ -1,8 +1,10 @@
 package com.iitsm.regression;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.iitsm.application.service.IncidentService;
+import com.iitsm.domain.exception.ValidationException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.TicketNumber;
 import com.iitsm.domain.repository.IncidentRepository;
@@ -10,6 +12,14 @@ import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.persistence.CompanySeeder;
 import java.time.Clock;
 import java.time.Year;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -66,6 +76,44 @@ class TicketNumberIntakeRegressionTest {
         assertThat(number.year()).isEqualTo(Year.now(clock).getValue());
         assertThat(number.sequence()).isPositive();
         assertThat(incidentRepository.findById(created.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("a ticket whose intake fails after its number was reserved gives the number back (no gap)")
+    void failedIntakeLeavesNoGap() {
+        Incident before = incidentService.createIncident(
+                ENGINEERING_EMPLOYEE, "Printer jammed again", "The printer on floor two jams on every print job.");
+
+        assertThatThrownBy(() -> incidentService.createIncident(ENGINEERING_EMPLOYEE, "bad", "too short"))
+                .isInstanceOf(ValidationException.class);
+
+        Incident after = incidentService.createIncident(
+                ENGINEERING_EMPLOYEE, "Printer jammed once more", "The printer on floor two jams again today.");
+        assertThat(TicketNumber.parse(after.getId()).sequence())
+                .isEqualTo(TicketNumber.parse(before.getId()).sequence() + 1);
+    }
+
+    @Test
+    @DisplayName("tickets raised in parallel for one department get unique, consecutive numbers")
+    void parallelIntakesGetConsecutiveNumbers() throws Exception {
+        int parallel = 6;
+        ExecutorService pool = Executors.newFixedThreadPool(parallel);
+        try {
+            List<Callable<String>> raises = new ArrayList<>();
+            for (int i = 0; i < parallel; i++) {
+                int n = i;
+                raises.add(() -> incidentService.createIncident(ENGINEERING_EMPLOYEE,
+                        "Parallel ticket number " + n, "Raised in parallel to exercise the counter, ticket " + n).getId());
+            }
+            TreeSet<Long> sequences = new TreeSet<>();
+            for (Future<String> raised : pool.invokeAll(raises, 120, TimeUnit.SECONDS)) {
+                sequences.add(TicketNumber.parse(raised.get()).sequence());
+            }
+            assertThat(sequences).as("unique").hasSize(parallel);
+            assertThat(sequences.last() - sequences.first()).as("consecutive").isEqualTo(parallel - 1L);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

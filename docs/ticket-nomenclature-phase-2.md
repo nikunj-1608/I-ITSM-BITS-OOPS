@@ -1,46 +1,46 @@
 # Ticket Nomenclature - Phase 2: Persistence and Generation for New Tickets
 
-Scope: new tickets now get `DEPT-YEAR-SEQUENCE` ids (e.g. `ENG-2026-000001`). Existing tickets keep their `INC-XXXXXXXX` ids until Phase 3. Decision record: ADR-013 (item 6 added in this phase).
+Scope: new tickets now get `DEPT-YEAR-SEQUENCE` ids (e.g. `ENG-2026-000001`). Existing tickets keep their `INC-XXXXXXXX` ids until Phase 3. Decision record: ADR-013 (item 6).
 
 ## What was built
 | Piece | Where | Role |
 |---|---|---|
 | `V3__ticket_sequences.sql` | `db/migration` | Table `ticket_sequences(department_code, ticket_year, last_sequence)`, PK (code, year). |
 | `TicketSequenceJpaEntity` | `infrastructure/persistence/entity` | Maps the table (`@IdClass` composite key). |
-| `SpringDataTicketSequenceRepository` | `infrastructure/persistence/repository` | `increment` (atomic UPDATE), `currentValue`, `insertFirst` (plain INSERT). |
-| `TicketSequenceCounter` | `infrastructure/persistence/adapter` | One reservation attempt in its own `REQUIRES_NEW` transaction. |
-| `TicketSequenceRepositoryAdapter` | `infrastructure/persistence/adapter` | Implements the domain port; retries when two callers race to create a row. |
+| `SpringDataTicketSequenceRepository` | `infrastructure/persistence/repository` | `increment` (atomic UPDATE), `currentValue`, `insertEmpty` (plain INSERT at 0). |
+| `TicketSequenceRepositoryAdapter` | `infrastructure/persistence/adapter` | Implements the domain port. Runs inside the caller's transaction (propagation MANDATORY). |
+| `TicketSequenceRowCreator` | `infrastructure/persistence/adapter` | Creates a missing counter row in its own short transaction (first ticket of a department/year only). |
 | `TicketNumberConfig` | `infrastructure/config` | Registers the `DepartmentCodeResolver` bean. |
 | `TicketNumberGenerator` | `application/service` | reporter -> department code (resolver) + year (`Clock`) + sequence (port) -> `TicketNumber`. |
-| `IncidentFactory` | `application/service` | Now takes the reporter `User` and uses the ticket number as the incident id. |
+| `IncidentFactory` | `application/service` | Takes the reporter `User`; the ticket number is the incident id. |
 | `IncidentIntakePipeline` | `application/service` | Passes the loaded reporter to the factory (one-line change). |
-| `User.getDepartment()` | `domain/model` | Returns `null` by default; `Employee` overrides it. Lets the generator ask instead of testing the type. |
+| `User.getDepartment()` | `domain/model` | `null` by default, overridden by `Employee`. |
 
-## How a number is issued
-1. Resolver turns the reporter's department into a code (blank or non-employee -> `MISC`).
-2. Year comes from the injected `Clock` (so the simulation's virtual clock drives it too).
-3. `reserve` runs in its own transaction: atomic `UPDATE ... last_sequence + 1`, then read the value; if no row exists, `INSERT` it at 1. If another thread created the row first the INSERT fails on the duplicate key, the adapter retries (up to 3 attempts) and takes the increment path.
+## How a number is issued (no gaps)
+1. The resolver turns the reporter's department into a code (blank or non-employee -> `MISC`); the year comes from the injected `Clock`.
+2. Inside the ticket's own transaction: atomic `UPDATE ... last_sequence + 1`, then read the value. The row lock makes a concurrent ticket for the same department/year wait for this transaction to finish.
+3. If the intake rolls back, the increment rolls back with it, so the number is handed out again: **the sequence never skips a number.**
+4. If no counter row exists yet, it is created at 0 in a separate short transaction (0 is not an issued number) and the increment is repeated. If two callers race to create it, the loser's duplicate-key error is ignored.
+5. Calling the port outside a transaction is refused (MANDATORY), because the increment and the read could otherwise interleave with another caller.
 
-## Decision worth knowing: gaps are possible
-Intake is one long transaction (classification, priority, assignment, notifications). Reserving the number inside it would hold the counter row lock for the whole intake and make every raise for a department queue behind the previous one. So a number is reserved in its own short transaction and committed at once. If the intake later rolls back, that number is not reused (a gap). Uniqueness is never at risk. The Phase 1 port Javadoc and ADR-013 were updated to say this.
+## Trade-off to know about
+Intake is one long transaction (classification, priority, assignment, notifications), so tickets of one department and year are created one after another; the next waits for the previous to commit. Different departments do not wait for each other. A side benefit: a ticket raised right after a similar one now sees it for duplicate detection.
 
-## Bug found by the new concurrency test (and fixed)
-The first version created the first row with `saveAndFlush`. For an entity with a composite id Spring Data uses `merge`, which silently overwrote a row another thread had just created, resetting the counter and issuing a duplicate (1 duplicate in 120 parallel calls). Replaced with a native `INSERT` that fails on the duplicate key. The test now passes repeatedly (5 extra runs on fresh databases).
+## Existing test changed: `CorrectnessRegressionTest.F7`
+F7 raced two near-identical tickets from the same employee to prove a technician with one free slot is never overloaded. With same-department tickets now issued one at a time, the second sees the first, is linked to it as a duplicate and inherits its assignee, which is the designed duplicate behaviour and not an overload. The test now races two reporters from different departments (employee: Engineering, CEO: Executive) so it still exercises a real concurrent race. Assertions are unchanged.
 
-## Tests added (suite 301 -> 313)
-- `TicketNumberGeneratorTest` (6): per-department independence, year rollover with fixed clocks, `MISC` for a reporter without a department, null handling, `IncidentFactory` uses the ticket number as the id.
-- `TicketSequenceRepositoryAdapterTest` (4, H2 + Flyway): starts at 1, departments independent, years independent, 8 threads x 15 calls give unique gap-free numbers including the first-row race.
-- `TicketNumberIntakeRegressionTest` (2, full pipeline): id is `ENG-<year>-<seq>` for the Engineering demo employee, consecutive numbers within a department, separate counter for Executive.
+## Bugs found by tests along the way (both fixed)
+- The first-row creation used `saveAndFlush`; for a composite key Spring Data uses `merge`, which silently overwrote a row another thread had just created and issued a duplicate. Replaced by a native `INSERT`.
+- A first design reserved the number in a separate transaction (no waiting), which left gaps on rollback; replaced by the design above.
 
-## Verified in the running app (dev profile)
-Employee raised 3 tickets and the CEO 1: `ENG-2026-000001`, `ENG-2026-000002`, `EXE-2026-000001`, `ENG-2026-000003`. Employee GET by the new id: 200; admin detail by id: 200; admin list shows the new ids; another employee's ticket: 403. Auto-assignment still works (tickets with clear text were assigned).
+## Tests (suite 301 -> 318)
+- `TicketNumberGeneratorTest` (6): per-department independence, year rollover with fixed clocks, `MISC`, null handling, factory uses the ticket number as the id.
+- `TicketSequenceRepositoryAdapterTest` (7, H2 + Flyway): starts at 1, departments and years independent, a rolled-back number is reused (also for the very first number), outside-a-transaction is refused, 8 threads x 15 calls unique and gap-free including the first-row race.
+- `TicketNumberIntakeRegressionTest` (4, full pipeline): `ENG-<year>-<seq>`, consecutive numbers, separate counter for Executive, a failed intake leaves no gap, 6 parallel intakes get unique consecutive numbers.
 
 ## Known gaps (later phases)
-- Existing tickets still have `INC-` ids; the seed does not create tickets, so a fresh dev database has none (Phase 3 migrates persistent databases).
-- No priority display name yet (Phase 4); the UI shows ids as plain strings and needs no change for the new format, final checks in Phase 5.
-- `DomainLifecycleDemo` still builds an incident with a hard-coded `INC-1001` (a demo, excluded from coverage).
-- Departments are free text, so a department with a typo gets its own fallback code and counter.
-- Technicians or admins raising a ticket would get `MISC`.
-
-## Verification
-`mvn verify` (Maven 3.10.0 from `~/.m2`, the wrapper's 3.9.9 download is incomplete on this machine): 313 tests, 0 failures, JaCoCo gate met.
+- Existing tickets still have `INC-` ids (Phase 3).
+- No priority display name yet (Phase 4); display name will use hyphens only, e.g. `P2-FIN-2026-000142`.
+- `DomainLifecycleDemo` still builds an incident with a hard-coded `INC-1001` (demo, excluded from coverage).
+- Departments are free text: a typo gets its own fallback code and counter. Technicians or admins raising a ticket would get `MISC`.
+- Maven wrapper's 3.9.9 download is incomplete on this machine; builds were run with Maven 3.10.0 from `~/.m2`.
