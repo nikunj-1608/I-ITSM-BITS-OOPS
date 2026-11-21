@@ -2,6 +2,7 @@ package com.iitsm.application.service;
 
 import com.iitsm.domain.event.DomainEvent;
 import com.iitsm.domain.event.DomainEventPublisher;
+import com.iitsm.domain.exception.TechnicianOverloadedException;
 import com.iitsm.domain.exception.ValidationException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,9 +184,12 @@ public class IncidentIntakePipeline {
                 try {
                     Optional<String> assignedId = technicianAssignmentService.tryAssignTechnician(incident, candidates, activeStrategy, now);
                     assignedId.ifPresent(techId -> incident.assign(techId, now));
-                } catch (Exception e) {
-                    log.warn("Technician capacity contention for incident {}: {}", incident.getId(), e.getMessage());
+                } catch (TechnicianOverloadedException | ObjectOptimisticLockingFailureException e) {
+                    log.warn("Technician capacity contention for incident {}; left for dispatcher: {}",
+                            incident.getId(), e.getMessage());
                 }
+            } else {
+                log.warn("No technician with free capacity for incident {}; left for dispatcher", incident.getId());
             }
         } else {
             incident.setNeedsTriage(true);

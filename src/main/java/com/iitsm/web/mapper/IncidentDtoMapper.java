@@ -1,14 +1,18 @@
 package com.iitsm.web.mapper;
 
+import com.iitsm.application.dto.AdminIncidentDetail;
 import com.iitsm.domain.model.AuditRecord;
 import com.iitsm.domain.model.Employee;
 import com.iitsm.domain.model.FactorContribution;
 import com.iitsm.domain.model.Incident;
+import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.SlaTracker;
+import com.iitsm.domain.model.SupportTeam;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.state.IncidentStates;
 import com.iitsm.domain.state.PublicStatusMapper;
+import com.iitsm.web.dto.AdminIncidentDetailView;
 import com.iitsm.web.dto.AdminIncidentView;
 import com.iitsm.web.dto.EmployeeIncidentView;
 import com.iitsm.web.dto.TechnicianIncidentView;
@@ -255,5 +259,49 @@ public final class IncidentDtoMapper {
                 incident.getReopenCount(),
                 incident.getCreatedAt(),
                 incident.getVersion());
+    }
+
+    /**
+     * Builds the full admin inspection view: the standard admin view plus reporter, service, support team,
+     * public status, triage flag and last-modified details.
+     */
+    public static AdminIncidentDetailView toAdminDetailView(AdminIncidentDetail detail) {
+        Incident incident = detail.incident();
+        return new AdminIncidentDetailView(
+                toAdminView(incident, detail.reporter(), detail.assignee(), detail.auditRecords()),
+                toReporterView(detail.reporter()),
+                toServiceView(detail.service()),
+                toSupportTeamView(detail.supportTeam()),
+                PublicStatusMapper.toPublicStatus(incident.getStatus()).getDisplayName(),
+                incident.isNeedsTriage(),
+                detail.lastModifiedAt());
+    }
+
+    private static AdminIncidentDetailView.ReporterView toReporterView(User reporter) {
+        if (reporter == null) {
+            return null;
+        }
+        Employee employee = (reporter instanceof Employee e) ? e : null;
+        return new AdminIncidentDetailView.ReporterView(
+                reporter.getId(),
+                reporter.getName(),
+                reporter.getEmail().value(),
+                (employee != null) ? employee.getDepartment() : null,
+                (employee != null && employee.getDesignation() != null) ? employee.getDesignation().getTitle() : null);
+    }
+
+    private static AdminIncidentDetailView.ServiceView toServiceView(ItService service) {
+        if (service == null) {
+            return null;
+        }
+        return new AdminIncidentDetailView.ServiceView(
+                service.getId(),
+                service.getName(),
+                service.getBusinessCriticality().name(),
+                service.getBusinessCriticality().getDescription());
+    }
+
+    private static AdminIncidentDetailView.SupportTeamView toSupportTeamView(SupportTeam team) {
+        return (team == null) ? null : new AdminIncidentDetailView.SupportTeamView(team.getId(), team.getName());
     }
 }

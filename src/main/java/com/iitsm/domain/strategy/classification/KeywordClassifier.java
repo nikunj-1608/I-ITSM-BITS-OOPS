@@ -15,6 +15,7 @@ import java.util.Set;
 public class KeywordClassifier implements IncidentClassifier {
 
     private static final String CLASSIFIER_NAME = "KEYWORD_CLASSIFIER";
+    private static final double SINGLE_TITLE_MATCH_CONFIDENCE = 0.55;
 
     private final Map<IncidentCategory, Set<String>> categoryLexicon = new EnumMap<>(IncidentCategory.class);
 
@@ -111,6 +112,9 @@ public class KeywordClassifier implements IncidentClassifier {
         } else if (maxMatches == 2) {
             confidence = 0.75;
             rationale.add("Moderate keyword match (" + maxMatches + " terms): " + matchedTerms);
+        } else if (maxMatches == 1 && appearsInTitle(title, matchedTerms.getFirst())) {
+            confidence = SINGLE_TITLE_MATCH_CONFIDENCE;
+            rationale.add("Single keyword match in title: " + matchedTerms);
         } else if (maxMatches == 1) {
             confidence = 0.50;
             rationale.add("Weak single keyword match: " + matchedTerms);
@@ -120,6 +124,10 @@ public class KeywordClassifier implements IncidentClassifier {
         }
 
         return ClassificationResult.of(bestCategory, confidence, CLASSIFIER_NAME, rationale);
+    }
+
+    private static boolean appearsInTitle(String title, String term) {
+        return title != null && TextNormalizer.tokenize(title).contains(term);
     }
 
     @Override

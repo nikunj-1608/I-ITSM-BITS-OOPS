@@ -2,6 +2,7 @@ package com.iitsm.application.service;
 
 import com.iitsm.domain.event.DomainEvent;
 import com.iitsm.domain.event.DomainEventPublisher;
+import com.iitsm.domain.exception.TechnicianOverloadedException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.ItService;
@@ -23,6 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -94,7 +96,9 @@ public class UnassignedIncidentDispatcher {
                     .collect(Collectors.toList());
 
             if (available.isEmpty()) {
-                continue; // Still no capacity anywhere
+                log.warn("Dispatcher found no technician with free capacity; {} incident(s) remain waiting",
+                        unassigned.size() - assignedCount);
+                break; // Still no capacity anywhere; every remaining incident would see the same pool
             }
 
             java.util.Set<String> exclusions = incident.getExcludedTechnicianIds();
@@ -107,7 +111,14 @@ public class UnassignedIncidentDispatcher {
 
             if (!candidates.isEmpty()) {
                 AssignmentStrategy activeStrategy = strategyRegistry.getActiveStrategy();
-                java.util.Optional<String> assignedId = technicianAssignmentService.tryAssignTechnician(incident, candidates, activeStrategy, now);
+                java.util.Optional<String> assignedId;
+                try {
+                    assignedId = technicianAssignmentService.tryAssignTechnician(incident, candidates, activeStrategy, now);
+                } catch (TechnicianOverloadedException | ObjectOptimisticLockingFailureException e) {
+                    log.warn("Dispatcher lost a capacity race for incident {}; retrying next cycle: {}",
+                            incident.getId(), e.getMessage());
+                    continue;
+                }
                 if (assignedId.isPresent()) {
                     incident.assign(assignedId.get(), now);
                     incidentRepository.save(incident);
