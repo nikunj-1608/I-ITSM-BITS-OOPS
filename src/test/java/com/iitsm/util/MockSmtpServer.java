@@ -18,7 +18,7 @@ public class MockSmtpServer {
 
         System.out.println("==================================================================");
         System.out.println(">>> Mock SMTP Server (GreenMail) is ACTIVE on port 1025");
-        System.out.println(">>> Ready to receive real email dispatches from I-ITSM.");
+        System.out.println(">>> Ready to receive real email dispatches from Swiftdesk.");
         System.out.println(">>> Incoming emails will print below in real time.");
         System.out.println(">>> Press Ctrl+C in this terminal to stop the server.");
         System.out.println("==================================================================");

@@ -9,7 +9,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>I-ITSM :: Intelligent IT Service Management</name>
+    <name>Swiftdesk :: IT Service Management</name>
     <description>CS F213 OOP Project - Intelligent Incident Resolution &amp; IT Service Management</description>
 
     <parent>

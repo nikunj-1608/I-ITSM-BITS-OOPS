@@ -116,7 +116,7 @@ iitsm:
     # secret: prod has none and refuses to start without MFA_ENCRYPTION_KEY.
     mfa:
       encryption-key: ${MFA_ENCRYPTION_KEY:nUwStk+Vj9p5Wto6IH1nnoAAxA95omigquRJPx37tn8=}
-      issuer: "Nimbus FinServe I-ITSM"
+      issuer: "Nimbus FinServe Swiftdesk"
       challenge-minutes: 5
       window-steps: 1
       recovery-code-count: 8

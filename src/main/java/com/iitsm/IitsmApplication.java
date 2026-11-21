@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Main application entrypoint for the Intelligent IT Service Management System (I-ITSM).
+ * Main application entrypoint for the IT Service Management System (Swiftdesk).
  */
 @SpringBootApplication
 @EnableScheduling

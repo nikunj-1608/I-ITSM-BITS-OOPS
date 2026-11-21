@@ -31,9 +31,9 @@ class TechnicianPortalMarkupTest {
 
     /** Recorded from the files before the rebuild began (versions in the asset URLs are normalised away). */
     private static final String INDEX_OUTSIDE_TECHNICIAN_SHA =
-            "50e7aee9e6c80b04816085e17c299fb922677e9ba2faf4626756e26d707db424";
+            "701a138fec4b0968f33064eda1fca202d36755b8579bf9afcdaccdfcdd54f19b";
     private static final String CSS_OUTSIDE_TECHNICIAN_SHA =
-            "a3687675edd2e54e5af6be79814cf56d968147c22a78fa3479066ec82d050d9e";
+            "e35d658cb9a1eef7b3b52db220174a1c475bf5f4844dddf6067600a481c8fe45";
     private static final String EMPLOYEE_JS_SHA =
             "1e566ced45dc60aa8f044c264710906e2fef658a960a2f66a2b8c270b14202b2";
     private static final String TEAM_LEAD_JS_SHA =

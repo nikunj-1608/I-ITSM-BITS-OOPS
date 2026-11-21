@@ -127,10 +127,10 @@ class TotpGeneratorTest {
     @Test
     @DisplayName("the otpauth URI carries the secret, the issuer and the account, encoded")
     void otpauthUri() {
-        String uri = TotpGenerator.otpauthUri("Nimbus FinServe I-ITSM", "admin@nimbusfinserve.com", "JBSWY3DPEHPK3PXP");
+        String uri = TotpGenerator.otpauthUri("Nimbus FinServe Swiftdesk", "admin@nimbusfinserve.com", "JBSWY3DPEHPK3PXP");
 
-        assertThat(uri).isEqualTo("otpauth://totp/Nimbus%20FinServe%20I-ITSM:admin%40nimbusfinserve.com"
-                + "?secret=JBSWY3DPEHPK3PXP&issuer=Nimbus%20FinServe%20I-ITSM&algorithm=SHA1&digits=6&period=30");
+        assertThat(uri).isEqualTo("otpauth://totp/Nimbus%20FinServe%20Swiftdesk:admin%40nimbusfinserve.com"
+                + "?secret=JBSWY3DPEHPK3PXP&issuer=Nimbus%20FinServe%20Swiftdesk&algorithm=SHA1&digits=6&period=30");
     }
 
     @Test

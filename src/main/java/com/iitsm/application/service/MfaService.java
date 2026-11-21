@@ -74,7 +74,7 @@ public class MfaService {
             SecurityAuditLog audit,
             @Qualifier("wallClock") Clock wallClock,
             Clock sharedClock,
-            @Value("${iitsm.security.mfa.issuer:Nimbus FinServe I-ITSM}") String issuer,
+            @Value("${iitsm.security.mfa.issuer:Nimbus FinServe Swiftdesk}") String issuer,
             @Value("${iitsm.security.mfa.window-steps:1}") int windowSteps,
             @Value("${iitsm.security.mfa.recovery-code-count:8}") int recoveryCodeCount) {
         this.users = Objects.requireNonNull(users, "users cannot be null");

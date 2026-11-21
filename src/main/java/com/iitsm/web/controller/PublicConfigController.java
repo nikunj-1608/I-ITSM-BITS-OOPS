@@ -30,7 +30,7 @@ public class PublicConfigController {
         return ResponseEntity.ok(Map.of(
                 "demoMode", demoMode,
                 "defaultDomain", defaultDomain,
-                "appName", "I-ITSM :: Nimbus FinServe",
+                "appName", "Swiftdesk :: Nimbus FinServe",
                 "version", "1.0.0"
         ));
     }

@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for I-ITSM Application
+# Multi-stage Dockerfile for Swiftdesk Application
 # Stage 1: Build JAR using Maven and Temurin JDK 21
 FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /workspace

@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Nimbus FinServe :: I-ITSM  -  light / dark mode
+ * Nimbus FinServe :: Swiftdesk  -  light / dark mode
  * ============================================================================
  * Loaded by app.js (section 19). One button, always showing both choices ("Light" and "Dark"), the active one
  * highlighted. It sits in the top right corner of the sign-in page and, after sign-in, in the header next to the

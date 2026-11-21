@@ -1,7 +1,7 @@
 package com.iitsm.domain.exception;
 
 /**
- * OOP: Base unchecked exception for all domain and application errors in I-ITSM.
+ * OOP: Base unchecked exception for all domain and application errors in Swiftdesk.
  * Every exception carries a machine-readable error code for consistent client mapping.
  */
 public abstract class IitsmException extends RuntimeException {

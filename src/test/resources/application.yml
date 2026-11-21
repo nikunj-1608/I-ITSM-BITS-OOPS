@@ -43,7 +43,7 @@ iitsm:
     # ADR-048: a test-only key (the committed development key is a different one)
     mfa:
       encryption-key: "mV9eXcXph7Gk2nBPam+HtTYYdx1wQb3qW2fiHtVnLdE="
-      issuer: "Nimbus FinServe I-ITSM"
+      issuer: "Nimbus FinServe Swiftdesk"
       challenge-minutes: 5
       window-steps: 1
       recovery-code-count: 8

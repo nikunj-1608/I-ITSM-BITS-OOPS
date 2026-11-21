@@ -86,7 +86,7 @@ class MfaConfigContractTest {
         assertThat(defaultOf(base().getProperty(MFA + "challenge-minutes"))).isEqualTo("5");
         assertThat(defaultOf(base().getProperty(MFA + "window-steps"))).isEqualTo("1");
         assertThat(defaultOf(base().getProperty(MFA + "recovery-code-count"))).isEqualTo("8");
-        assertThat(defaultOf(base().getProperty(MFA + "issuer"))).isEqualTo("Nimbus FinServe I-ITSM");
+        assertThat(defaultOf(base().getProperty(MFA + "issuer"))).isEqualTo("Nimbus FinServe Swiftdesk");
         PropertySource<?> test = documents(TEST_YML).get(0);
         assertThat(String.valueOf(test.getProperty(MFA + "challenge-minutes"))).isEqualTo("5");
     }

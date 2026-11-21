@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Nimbus FinServe :: Intelligent IT Service Management (I-ITSM)
+ * Nimbus FinServe :: Swiftdesk
  * Modern Single-Page Application Client (Linear / Vercel Aesthetic)
  * Self-Contained Vanilla ES6+ (Zero External CDN Dependencies, CSP Compliant)
  * ============================================================================

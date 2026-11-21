@@ -9,7 +9,7 @@ import java.time.Instant;
 
 /**
  * Pattern: Domain Event / Observer.
- * Sealed interface defining all strongly-typed domain events in the I-ITSM event-driven spine.
+ * Sealed interface defining all strongly-typed domain events in the Swiftdesk event-driven spine.
  */
 public sealed interface DomainEvent {
 

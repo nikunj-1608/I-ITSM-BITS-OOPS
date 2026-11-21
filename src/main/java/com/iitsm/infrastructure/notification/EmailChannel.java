@@ -59,7 +59,7 @@ public class EmailChannel implements NotificationChannel {
                     ? overrideRecipient.trim()
                     : recipientEmail;
             String formattedSubject = (overrideRecipient != null && !overrideRecipient.trim().isEmpty())
-                    ? String.format("[I-ITSM -> %s] %s", recipientEmail, subject)
+                    ? String.format("[Swiftdesk -> %s] %s", recipientEmail, subject)
                     : subject;
 
             SimpleMailMessage mailMessage = new SimpleMailMessage();

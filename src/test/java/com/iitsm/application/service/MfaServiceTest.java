@@ -88,7 +88,7 @@ class MfaServiceTest {
         when(users.findById(any())).thenAnswer(call -> java.util.Optional.ofNullable(stored.get(call.<String>getArgument(0))));
         when(users.save(any())).thenAnswer(call -> call.getArgument(0));
         service = new MfaService(users, recovery, cipher, encoder, attempts, sessions, audit, wallClock, sharedClock,
-                "Nimbus FinServe I-ITSM", 1, 8);
+                "Nimbus FinServe Swiftdesk", 1, 8);
     }
 
     private String codeAt(String secret, Instant at) {
@@ -110,7 +110,7 @@ class MfaServiceTest {
         MfaService.MfaSetup setup = service.beginSetup("ADM-1");
 
         assertThat(setup.secret()).matches("[A-Z2-7]{32}");
-        assertThat(setup.otpauthUri()).startsWith("otpauth://totp/Nimbus%20FinServe%20I-ITSM:ada%40nimbusfinserve.com")
+        assertThat(setup.otpauthUri()).startsWith("otpauth://totp/Nimbus%20FinServe%20Swiftdesk:ada%40nimbusfinserve.com")
                 .contains("secret=" + setup.secret());
         assertThat(admin.getMfaSecret()).isNotEqualTo(setup.secret()).doesNotContain(setup.secret());
         assertThat(cipher.decrypt(admin.getMfaSecret(), "ADM-1")).isEqualTo(setup.secret());
