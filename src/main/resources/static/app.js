@@ -523,6 +523,7 @@ function handleSignOut(notify = true) {
   // The Security dialog can show a secret or recovery codes: it must not outlive the session (ADR-048)
   if (document.getElementById('security-modal')) closeModal();
   closeAdminTicketDetailModal({ restoreFocus: false });
+  closeTeamMemberTickets();
   resetStrategyComparison();
   resetTeamLeadView();
   resetTechnicianView();
@@ -656,94 +657,6 @@ async function updateNotifications() {
 // ============================================================================
 // 6. Console 1: Employee Portal Logic
 // ============================================================================
-function displayTicketCreatedCallout(created) {
-  const container = document.getElementById('emp-callout-container');
-  if (!container || !created) return;
-
-  const isAssigned = !!(created.assigneeName && created.assigneeName !== 'Routing Queue');
-  const targetEmail = created.assigneeEmail || (isAssigned ? 'tech.network@nimbusfinserve.com' : 'admin@nimbusfinserve.com');
-
-  if (isAssigned) {
-    container.innerHTML = `
-      <div class="card" style="background: var(--primary-subtle); border: 1px solid var(--primary-border); padding: 1.25rem; margin-bottom: 1.5rem; animation: fadeIn 0.3s ease;">
-        <div class="flex items-start gap-3">
-          <div style="font-size: 1.5rem; line-height: 1;">🎫</div>
-          <div class="w-full">
-            <div class="flex items-center justify-between flex-wrap gap-2" style="margin-bottom: 0.35rem;">
-              <h4 class="font-bold text-main text-sm">
-                Support Ticket Logged: <span class="font-mono text-cyan">${escapeHtml(created.id)}</span>
-              </h4>
-              <span class="badge badge-status-assigned">ROUTED &amp; ASSIGNED</span>
-            </div>
-            <p class="text-xs text-muted" style="margin-bottom: 0.75rem;">
-              Automated intelligence classified and assigned this incident to domain specialist: 
-              <strong class="text-main">${escapeHtml(created.assigneeName)}</strong>
-            </p>
-            <div style="background: #ffffff; border-radius: 6px; padding: 0.85rem; border-left: 4px solid var(--primary); border: 1px solid #cbd5e1; border-left-width: 4px; border-left-color: var(--primary);">
-              <div class="flex items-center gap-1.5" style="margin-bottom: 0.25rem;">
-                <span class="font-semibold text-xs text-blue">🎬 Live Evaluation Walkthrough Step:</span>
-              </div>
-              <p class="text-xs text-muted" style="line-height: 1.4;">
-                This ticket is now assigned to domain specialist <strong class="text-main">${escapeHtml(created.assigneeName)}</strong>.
-                To investigate, acknowledge, add technical notes, and resolve this ticket from the technician console, sign in as:
-              </p>
-              <div class="flex items-center gap-2 flex-wrap" style="margin-top: 0.5rem;">
-                <code class="text-blue font-mono text-xs" style="background: var(--primary-subtle); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--primary-border);">${escapeHtml(targetEmail)}</code>
-                <button type="button" class="btn btn-xs btn-primary btn-demo-quick-switch" data-email="${escapeHtml(targetEmail)}">
-                  Sign Out &amp; Login as Specialist &rarr;
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  } else {
-    // Ticket requires administrator triage / classification review
-    container.innerHTML = `
-      <div class="card" style="background: var(--warning-subtle); border: 1px solid var(--warning-border); padding: 1.25rem; margin-bottom: 1.5rem; animation: fadeIn 0.3s ease;">
-        <div class="flex items-start gap-3">
-          <div style="font-size: 1.5rem; line-height: 1;">📋</div>
-          <div class="w-full">
-            <div class="flex items-center justify-between flex-wrap gap-2" style="margin-bottom: 0.35rem;">
-              <h4 class="font-bold text-main text-sm">
-                Support Ticket Logged: <span class="font-mono text-amber">${escapeHtml(created.id)}</span>
-              </h4>
-              <span class="badge" style="background: var(--warning-subtle); color: var(--warning-text); border: 1px solid var(--warning-border);">AWAITING ADMIN TRIAGE</span>
-            </div>
-            <p class="text-xs text-muted" style="margin-bottom: 0.75rem;">
-              NLP classification confidence was below auto-assignment threshold. This ticket has been placed into the <strong>Unified Triage Queue</strong>.
-            </p>
-            <div style="background: #ffffff; border-radius: 6px; padding: 0.85rem; border: 1px solid #cbd5e1; border-left: 4px solid var(--warning); border-left-width: 4px; border-left-color: var(--warning);">
-              <div class="flex items-center gap-1.5" style="margin-bottom: 0.25rem;">
-                <span class="font-semibold text-xs text-amber">🎬 Evaluation Walkthrough Step (Human-in-the-Loop Triage):</span>
-              </div>
-              <p class="text-xs text-muted" style="line-height: 1.4;">
-                To inspect, accept AI suggestions, or assign this ticket to a domain specialist, sign in as Chief Administrator:
-              </p>
-              <div class="flex items-center gap-2 flex-wrap" style="margin-top: 0.5rem;">
-                <code class="text-amber font-mono text-xs" style="background: var(--warning-subtle); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--warning-border);">admin@nimbusfinserve.com</code>
-                <button type="button" class="btn btn-xs btn-primary btn-demo-quick-switch" data-email="admin@nimbusfinserve.com">
-                  Sign Out &amp; Login as Administrator &rarr;
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  const switchBtn = container.querySelector('.btn-demo-quick-switch');
-  if (switchBtn) {
-    switchBtn.addEventListener('click', () => {
-      const email = switchBtn.getAttribute('data-email');
-      handleSignOut(false);
-      loginUser(email, STATE.demoPassword);
-    });
-  }
-}
-
 // Employee portal (ADR-050). One list from GET /api/employee/incidents, shown as client-side views. Everything drawn
 // here comes from EmployeeIncidentView (id, title, description, public status, assignee, createdTime, resolutionText,
 // auditTrail, allowedActions, reopenCount): there is no priority, SLA or internal note to show, by type (rule 12).
@@ -785,7 +698,7 @@ function resetEmployeeView() {
   STATE.employee.view = 'active';
   STATE.employee.selectedId = null;
   STATE.employee.submitInFlight = false;
-  ['emp-tickets-container', 'emp-featured', 'emp-tracking', 'emp-callout-container'].forEach(id => {
+  ['emp-tickets-container', 'emp-featured', 'emp-tracking'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = '';
   });
@@ -1141,7 +1054,6 @@ async function submitEmployeeIncident(form) {
     showToast('Ticket submitted successfully!', 'success');
     form.reset();
     updateEmployeeCharCount();
-    displayTicketCreatedCallout(created);
     if (created && created.id) {
       STATE.employee.selectedId = created.id;
       STATE.employee.view = empIsOpen(created) ? 'active' : 'history';
@@ -1898,7 +1810,7 @@ function renderTeamRoster(technicians) {
     const categories = [...new Set((tech.skills || []).map(s => s.category))].join(', ') || 'None';
 
     return `
-      <div class="card" style="padding: 1rem; background: #ffffff; border: 1px solid var(--border);">
+      <div class="card tlm-card" role="button" tabindex="0" data-id="${escapeHtml(tech.id)}" data-name="${escapeHtml(tech.name)}" aria-haspopup="dialog" aria-label="Show the current tickets of ${escapeHtml(tech.name)}" style="padding: 1rem; background: #ffffff; border: 1px solid var(--border);">
         <div class="flex items-center justify-between" style="margin-bottom: 0.5rem;">
           <h4 class="font-bold text-main text-sm">${escapeHtml(tech.name)}</h4>
           <span class="badge ${pct > 75 ? 'badge-p1' : 'badge-status-resolved'}">${pct}% Load</span>
@@ -2996,6 +2908,7 @@ function setupEventListeners() {
   // Sign out button
   document.getElementById('btn-logout').addEventListener('click', () => handleSignOut(true));
   setupSecurityListeners();
+  setupTeamMemberListeners();
 
   // Navigation tabs
   document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -4515,3 +4428,173 @@ function setupSecurityListeners() {
   script.defer = true;
   document.head.appendChild(script);
 })();
+
+// ============================================================================
+// 20. Team Lead: the current tickets of one team member, read only (ADR-054)
+// ============================================================================
+// Clicking a technician on the Team Lead tab opens a window with every ticket that technician holds and that the
+// employee has not yet confirmed as fixed (VERIFIED and CLOSED are left out). The window only reads: it has a close
+// button and no action button, and it sends one GET. Pattern: none (a view over GET /api/technician/team-queue).
+const TLM_CONFIRMED_STATUSES = ['VERIFIED', 'CLOSED'];
+const TLM_PROGRESS_STEPS = ['Reported', 'Assigned', 'In Progress', 'Resolved', 'Closed'];
+const TLM_STEP_OF_STATUS = {
+  NEW: 1, CLASSIFIED: 1, ASSIGNED: 2, ACKNOWLEDGED: 2, IN_PROGRESS: 3, PENDING_INFO: 3, RESOLVED: 4
+};
+const TLM_PERCENT = 100;
+let tlmRequestSeq = 0;
+
+function tlmDialogOpen() {
+  const container = document.getElementById('modal-container');
+  return !!(container && !container.classList.contains('hidden') && container.querySelector('.tlm-dialog'));
+}
+
+function closeTeamMemberTickets() {
+  tlmRequestSeq++; // a late answer for this window is discarded
+  if (tlmDialogOpen()) closeModal();
+}
+
+function tlmCategory(category) {
+  const text = String(category || '').replace(/_/g, ' ').toLowerCase();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Not set';
+}
+
+function tlmProgressHtml(t) {
+  const step = TLM_STEP_OF_STATUS[t.status] || 1;
+  let label = `${TLM_PROGRESS_STEPS[step - 1]} (step ${step} of ${TLM_PROGRESS_STEPS.length})`;
+  if (t.status === 'RESOLVED') label += ' - waiting for the employee to confirm';
+  if (t.status === 'PENDING_INFO') label += ' - waiting for the employee to reply';
+  const percent = Math.round((step / TLM_PROGRESS_STEPS.length) * TLM_PERCENT);
+  return `
+    <div class="tlm-progress">
+      <div class="tlm-progress-track"><div class="tlm-progress-fill" style="width: ${percent}%;"></div></div>
+      <span class="tlm-progress-label">${escapeHtml(label)}</span>
+    </div>`;
+}
+
+function tlmNotesHtml(notes) {
+  if (!Array.isArray(notes) || notes.length === 0) return '<p class="text-xs text-muted">No notes yet.</p>';
+  return notes.map(n => `
+    <p class="tlm-note"><strong>${escapeHtml(n.authorName || 'Unknown')}</strong>
+      <span class="text-dim">${escapeHtml(formatDate(n.createdAt))}</span><br>${escapeHtml(n.noteText)}</p>`).join('');
+}
+
+function tlmResolutionHtml(resolution) {
+  if (!resolution) return '';
+  return `
+    <h5 class="tlm-sub">Resolution</h5>
+    <p class="tlm-note"><strong>Root cause:</strong> ${escapeHtml(resolution.rootCause)}<br>
+      <strong>Steps taken:</strong> ${escapeHtml(resolution.stepsTaken)}<br>
+      <strong>Preventive action:</strong> ${escapeHtml(resolution.preventiveAction)}</p>`;
+}
+
+function tlmDetailsHtml(t) {
+  return `
+    <details class="tlm-details">
+      <summary>Description, notes and resolution</summary>
+      <h5 class="tlm-sub">Description</h5>
+      <p class="tlm-note">${escapeHtml(t.description)}</p>
+      <h5 class="tlm-sub">Notes</h5>
+      ${tlmNotesHtml(t.notes)}
+      ${tlmResolutionHtml(t.resolution)}
+    </details>`;
+}
+
+function tlmTicketHtml(t, nowMs) {
+  const line = tpSlaLine(t, nowMs);
+  return `
+    <li class="tlm-ticket" data-ticket-id="${escapeHtml(t.id)}">
+      <div class="tlm-ticket-head">
+        <span class="font-mono text-cyan text-xs font-bold">${escapeHtml(t.id)}</span>
+        ${ticketNameHtml(t)}
+        ${tpPriorityChip(t.priority)}
+        ${tpStatusChip(t, line)}
+      </div>
+      <div class="tlm-ticket-title">${escapeHtml(t.title)}</div>
+      <div class="tlm-ticket-meta text-xs text-muted">Type: <strong class="text-main">${escapeHtml(tlmCategory(t.category))}</strong>
+        &middot; Raised: ${escapeHtml(formatDate(t.createdAt))}
+        &middot; Requester: ${escapeHtml(t.reporterName || t.reporterId)}
+        &middot; SLA: ${escapeHtml(line.text)}</div>
+      ${tlmProgressHtml(t)}
+      ${tlmDetailsHtml(t)}
+    </li>`;
+}
+
+// The tickets the technician holds and the employee has not yet confirmed; the server's urgency order is kept.
+function tlmCurrentTickets(queue, techId) {
+  return queue.filter(t => t.assigneeId === techId && !TLM_CONFIRMED_STATUSES.includes(t.status));
+}
+
+function tlmBodyHtml(queue, techId) {
+  const tickets = tlmCurrentTickets(queue, techId);
+  if (tickets.length === 0) {
+    return '<p class="text-center text-muted" style="padding: 2rem;">This team member has no current tickets.</p>';
+  }
+  const nowMs = Date.now();
+  return `
+    <p class="text-xs text-muted tlm-count">${tickets.length} current ticket${tickets.length === 1 ? '' : 's'}
+      (not yet confirmed fixed by the employee)</p>
+    <ul class="tlm-list">${tickets.map(t => tlmTicketHtml(t, nowMs)).join('')}</ul>`;
+}
+
+function tlmShellHtml(name, bodyHtml) {
+  return `
+    <div class="tlm-dialog" role="dialog" aria-modal="true" aria-labelledby="tlm-title">
+      <div class="modal-header">
+        <h3 class="modal-title" id="tlm-title">Current tickets: ${escapeHtml(name)}</h3>
+        <button type="button" class="btn btn-xs btn-secondary tlm-close" data-close-modal aria-label="Close">&times;</button>
+      </div>
+      <div id="tlm-body">${bodyHtml}</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close-modal>Close</button>
+      </div>
+    </div>`;
+}
+
+function tlmSetBody(html) {
+  const body = document.getElementById('tlm-body');
+  if (body) body.innerHTML = html;
+}
+
+async function openTeamMemberTicketsModal(techId, name) {
+  const seq = ++tlmRequestSeq;
+  openModal(tlmShellHtml(name, '<p class="text-center text-muted" style="padding: 2rem;">Loading tickets...</p>'));
+  let queue;
+  try {
+    queue = await apiCall('/api/technician/team-queue');
+  } catch (error) {
+    if (seq === tlmRequestSeq && tlmDialogOpen()) {
+      tlmSetBody(`<p class="text-center text-red" style="padding: 2rem;">Could not load the tickets: ${escapeHtml(error.message)}</p>`);
+    }
+    return;
+  }
+  // The window was closed, replaced or the user signed out while the answer was on its way
+  if (seq !== tlmRequestSeq || !tlmDialogOpen()) return;
+  tlmSetBody(tlmBodyHtml(Array.isArray(queue) ? queue : [], techId));
+}
+
+function tlmCardActivated(event) {
+  const card = event.target.closest('.tlm-card');
+  if (!card) return false;
+  openTeamMemberTicketsModal(card.getAttribute('data-id'), card.getAttribute('data-name'));
+  return true;
+}
+
+function setupTeamMemberListeners() {
+  const grid = document.getElementById('teamlead-roster-grid');
+  if (grid) {
+    grid.addEventListener('click', tlmCardActivated);
+    grid.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && tlmCardActivated(event)) event.preventDefault();
+    });
+  }
+  // The shared dialog has no backdrop or Escape handling of its own: this window gets both
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && tlmDialogOpen()) closeTeamMemberTickets();
+  });
+  const container = document.getElementById('modal-container');
+  if (container) {
+    container.addEventListener('click', event => {
+      if (event.target === container && tlmDialogOpen()) closeTeamMemberTickets();
+    });
+  }
+}

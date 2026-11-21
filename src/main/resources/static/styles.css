@@ -2089,6 +2089,9 @@ body.modal-open {
   .emp-featured-actions .btn { flex: 1 1 auto; }
 }
 
+/* The page footer is not shown on the Employee tab; every other tab keeps it (ADR-055). */
+#app-view:has(#console-employee.active) > footer { display: none; }
+
 /* Technician portal (tp-) */
 /* ADR-051: the rebuilt Technician tab. Every selector here starts with tp- so no other tab can be affected; shared
    rules (.kpi-card, .capacity-*, .sla-timer-pill, .ticket-focus, .btn) are used or left alone, never edited. */
@@ -2256,3 +2259,26 @@ body.modal-open {
   .tp-capacity-text { font-size: 1.2rem; }
 }
 /* End Technician portal */
+
+/* Team Lead: current tickets of one team member (ADR-054) */
+.tlm-card { cursor: pointer; }
+.tlm-card:hover { border-color: var(--primary); }
+.tlm-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.modal-content:has(.tlm-dialog) { max-width: 860px; }
+.tlm-count { margin-bottom: 0.75rem; }
+.tlm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.tlm-ticket { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem 1rem; }
+.tlm-ticket-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.tlm-ticket-title { font-weight: 600; font-size: 0.9rem; margin: 0.35rem 0 0.2rem; color: var(--text-main); }
+.tlm-progress { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; }
+.tlm-progress-track { flex: 0 0 8rem; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.tlm-progress-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+.tlm-progress-label { font-size: 0.75rem; color: var(--text-muted); }
+.tlm-details { margin-top: 0.5rem; font-size: 0.8rem; }
+.tlm-details summary { cursor: pointer; color: var(--primary); font-weight: 600; }
+.tlm-sub { margin: 0.6rem 0 0.2rem; font-size: 0.75rem; font-weight: 700; color: var(--text-main); }
+.tlm-note { margin: 0 0 0.35rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .tlm-progress { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+  .tlm-progress-track { flex-basis: auto; width: 100%; }
+}

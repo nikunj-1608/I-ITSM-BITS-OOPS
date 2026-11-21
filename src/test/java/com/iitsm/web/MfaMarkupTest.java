@@ -136,6 +136,6 @@ class MfaMarkupTest {
         assertThat(section).doesNotContainPattern("console\\.");
         assertThat(section).doesNotContain("sessionStorage").doesNotContain("localStorage");
         assertThat(indexHtml).doesNotContainPattern("\\son[a-z]+\\s*=");
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
     }
 }

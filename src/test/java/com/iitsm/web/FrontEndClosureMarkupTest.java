@@ -161,7 +161,7 @@ class FrontEndClosureMarkupTest {
     @Test
     @DisplayName("the static files carry the Phase J asset version and no inline handlers")
     void assetVersionAndCsp() {
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
         assertThat(indexHtml).doesNotContainPattern("\\son(click|submit|change|load)\\s*=");
         assertThat(indexHtml).contains("id=\"btn-register-submit\"").contains("id=\"btn-login-submit\"");
     }

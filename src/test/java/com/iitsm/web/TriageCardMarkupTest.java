@@ -91,7 +91,7 @@ class TriageCardMarkupTest {
     @Test
     @DisplayName("The asset version was bumped with the change, so browsers do not keep the old script")
     void assetVersionIsBumped() {
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2")
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4")
                 .doesNotContain("?v=3.5");
     }
 }

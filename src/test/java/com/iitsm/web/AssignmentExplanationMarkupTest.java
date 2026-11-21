@@ -96,6 +96,6 @@ class AssignmentExplanationMarkupTest {
         int end = appJs.indexOf("function renderTicketDetailAssignmentWhy(");
         assertThat(start).isPositive();
         assertThat(appJs.substring(start, end)).doesNotContainPattern("\\son[a-z]+=");
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
     }
 }

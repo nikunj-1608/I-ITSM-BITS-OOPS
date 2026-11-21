@@ -57,6 +57,6 @@ class ActorNameMarkupTest {
     @Test
     @DisplayName("the static files carry the Phase H asset version")
     void assetVersion() {
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
     }
 }

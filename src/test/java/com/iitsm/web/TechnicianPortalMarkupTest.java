@@ -33,11 +33,11 @@ class TechnicianPortalMarkupTest {
     private static final String INDEX_OUTSIDE_TECHNICIAN_SHA =
             "771de9c3d44309f5974005548a256c5ed2cd5ca7bb5a07f01b553d5833eb90cf";
     private static final String CSS_OUTSIDE_TECHNICIAN_SHA =
-            "6b69dd26cf51067d23e875950d6e21b0c5bcdd78217c7a86a7cfd66d67be109d";
+            "a3687675edd2e54e5af6be79814cf56d968147c22a78fa3479066ec82d050d9e";
     private static final String EMPLOYEE_JS_SHA =
-            "4866374aae6c00d81b371b4f718280be7beb7325ad1e7063c5d83170e904bc22";
+            "1e566ced45dc60aa8f044c264710906e2fef658a960a2f66a2b8c270b14202b2";
     private static final String TEAM_LEAD_JS_SHA =
-            "ad700905fd3885543704664b898df1f4303fe7aba48a498b8edfd513974ba6f3";
+            "67e229f97c942646a5c974c56fb736e3652c25ee28a356407eab231ec880c7e5";
 
     private static String indexHtml;
     private static String appJs;

@@ -354,17 +354,15 @@ def main():
         api.wait_for(a, lambda d: d["status"] in ("VERIFIED", "CLOSED"), "Verify: the ticket is verified")
         check(True, "employee: Verify & rate worked (%s)" % api.detail(a)["status"])
 
-        # ---- Employee: raise a ticket in the form and use the callout button -------------------------------------------
+        # ---- Employee: raise a ticket in the form; no confirmation box is drawn (ADR-055) ---------------------------------
         page.fill("#emp-inc-title", "VPN gateway " + words(api.rng, 2))
         page.fill("#emp-inc-desc", "The vpn and the gateway " + words(api.rng, 14) + " vpn.")
         page.click("#btn-submit-incident")
-        page.wait_for_selector("#emp-callout-container .btn-demo-quick-switch", timeout=20000)
-        check(True, "employee: Raise ticket shows the confirmation with the specialist button")
-        page.click("#emp-callout-container .btn-demo-quick-switch")
-        page.wait_for_function("() => !!document.querySelector('#btn-logout')", timeout=15000)
+        page.wait_for_selector("#emp-tickets-container button.btn-emp-select", timeout=20000)
         page.wait_for_timeout(1000)
-        check(page.locator("#login-email").count() == 0 or not page.locator("#form-login").is_visible(),
-              "employee: 'Sign Out & Login as Specialist' switched the signed-in user")
+        check(page.locator("#emp-callout-container").inner_text().strip() == "" and page.locator(".btn-demo-quick-switch").count() == 0,
+              "employee: Raise ticket shows no confirmation box and no sign-out shortcut button")
+        check(page.locator("#app-view > footer").is_hidden(), "employee: the page footer is not shown on the Employee tab")
         sign_out(page)
 
         # ---- Technician 2: flag out-of-scope; team lead; administrator triage -----------------------------------------

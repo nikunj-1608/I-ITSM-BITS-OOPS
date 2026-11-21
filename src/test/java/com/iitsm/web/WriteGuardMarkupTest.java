@@ -77,7 +77,7 @@ class WriteGuardMarkupTest {
     @Test
     @DisplayName("Assets are cache-busted to 3.5 and no inline handlers were introduced")
     void assetsAreCacheBustedAndCspSafe() {
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
         assertThat(indexHtml).doesNotContainPattern("\\son(click|submit|change|load)\\s*=");
     }
 }

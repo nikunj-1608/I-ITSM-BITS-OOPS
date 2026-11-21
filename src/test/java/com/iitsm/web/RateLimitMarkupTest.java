@@ -71,6 +71,6 @@ class RateLimitMarkupTest {
     @Test
     @DisplayName("S2: the asset version is bumped for both files (4.8 since S4)")
     void assetVersionBumped() {
-        assertThat(indexHtml).contains("/styles.css?v=5.2").contains("/app.js?v=5.2");
+        assertThat(indexHtml).contains("/styles.css?v=5.4").contains("/app.js?v=5.4");
     }
 }
