@@ -31,7 +31,7 @@ class TechnicianPortalMarkupTest {
 
     /** Recorded from the files before the rebuild began (versions in the asset URLs are normalised away). */
     private static final String INDEX_OUTSIDE_TECHNICIAN_SHA =
-            "771de9c3d44309f5974005548a256c5ed2cd5ca7bb5a07f01b553d5833eb90cf";
+            "50e7aee9e6c80b04816085e17c299fb922677e9ba2faf4626756e26d707db424";
     private static final String CSS_OUTSIDE_TECHNICIAN_SHA =
             "a3687675edd2e54e5af6be79814cf56d968147c22a78fa3479066ec82d050d9e";
     private static final String EMPLOYEE_JS_SHA =

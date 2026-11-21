@@ -64,15 +64,6 @@ class EmployeePortalMarkupTest {
         }
     }
 
-    /** The employee section without the privacy banner, which names what is hidden on purpose. */
-    private static String employeeHtmlWithoutBanner() {
-        int start = employeeHtml.indexOf("<div id=\"emp-privacy-banner\"");
-        assertThat(start).as("privacy banner").isGreaterThanOrEqualTo(0);
-        int end = employeeHtml.indexOf("<!-- Sub-navigation", start);
-        assertThat(end).isGreaterThan(start);
-        return employeeHtml.substring(0, start) + employeeHtml.substring(end);
-    }
-
     @Test
     @DisplayName("every element id the employee script looks up exists in index.html")
     void everyLookedUpIdExists() {
@@ -105,7 +96,7 @@ class EmployeePortalMarkupTest {
     @Test
     @DisplayName("the employee section shows no priority, SLA, gateway, knowledge base, catalog or classifier preview")
     void noStaffOnlyContent() {
-        String html = employeeHtmlWithoutBanner();
+        String html = employeeHtml;
         assertThat(html.toLowerCase()).doesNotContain("priority", "sla", "gateway", "knowledge base",
                 "service catalog", "tier", "classifier", "emp-ai-preview", "preview-category", "preview-service",
                 "sim active", "sec-pol");
@@ -114,13 +105,10 @@ class EmployeePortalMarkupTest {
     }
 
     @Test
-    @DisplayName("the privacy banner says what is hidden and that it is enforced, without a policy id")
-    void privacyBanner() {
-        String banner = employeeHtml.substring(employeeHtml.indexOf("emp-privacy-banner"),
-                employeeHtml.indexOf("<!-- Sub-navigation"));
-        assertThat(banner).contains("Employee Self-Service Privacy Protection", "ENFORCED", "priority", "SLA",
-                "engineering notes");
-        assertThat(banner).doesNotContainPattern("[A-Z]{2,}-[A-Z]{2,}-\\d+");
+    @DisplayName("the privacy banner is not shown on the Employee tab")
+    void privacyBannerIsGone() {
+        assertThat(employeeHtml).doesNotContain("emp-privacy-banner", "Privacy Protection", "ENFORCED");
+        assertThat(employeeHtml).contains("<!-- Sub-navigation");
     }
 
     @Test

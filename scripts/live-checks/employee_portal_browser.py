@@ -225,7 +225,7 @@ def main():
         sign_in(page, base, EMPLOYEE)
         page.wait_for_timeout(1200)
         check(page.locator("#console-employee.active").count() == 1, "the employee lands on the Employee Portal")
-        check("ENFORCED" in page.locator("#emp-privacy-banner").inner_text(), "the privacy banner shows ENFORCED")
+        check(page.locator("#emp-privacy-banner").count() == 0, "the privacy banner is not on the Employee tab")
 
         # ---- 1. Report Issue + template chip + submit ------------------------------------------------------------------
         page.click("#emp-nav-report")
