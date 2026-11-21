@@ -5,6 +5,7 @@ import com.iitsm.domain.model.IncidentStatus;
 import java.time.Instant;
 import java.util.Set;
 
+// OOP (Realization): the class realizes the IncidentState interface; one class per lifecycle state (State pattern).
 /**
  * Pattern: State.
  * Represents an incident assigned to a technician queue.
@@ -12,6 +13,7 @@ import java.util.Set;
  */
 public class AssignedState implements IncidentState {
 
+    // OOP (static final constant): shared by all instances, immutable, named instead of repeated as a magic value.
     private static final Set<String> ALLOWED = Set.of("acknowledge", "flagWrongDomain");
 
     @Override
@@ -24,6 +26,7 @@ public class AssignedState implements IncidentState {
         return ALLOWED;
     }
 
+    // OOP (Method overriding): replaces the refusing default from the interface with the real behaviour for this state.
     @Override
     public void acknowledge(Incident incident, String technicianId, Instant now) {
         if (incident.getSlaTracker() != null) {

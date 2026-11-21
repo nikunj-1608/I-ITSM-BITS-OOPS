@@ -9,6 +9,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+// OOP (Port and adapter): adapts Spring's SSE emitters to the application's RealtimeNotificationPort.
 /**
  * Registry managing active Server-Sent Event (SSE) client connections per recipient.
  */

@@ -166,6 +166,7 @@ public class EscalationService {
     private String resolveSystemAdminId() {
         List<User> admins = userRepository.findByRole(UserRole.ROLE_ADMIN);
         for (User u : admins) {
+            // OOP (Downcast with instanceof): only an Administrator has an admin level; the pattern variable avoids a separate cast.
             if (u instanceof Administrator admin && admin.isSystemAdmin()) {
                 return admin.getId();
             }

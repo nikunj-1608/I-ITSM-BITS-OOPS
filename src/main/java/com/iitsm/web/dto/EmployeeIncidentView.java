@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+// OOP (Immutability): EmployeeIncidentView is a record, so it is a read-only data carrier with no setters.
 /**
  * Persona DTO for Employee users.
  * STRICT PRIVACY INVARIANT: Priority, SLA metrics, and technician internal notes

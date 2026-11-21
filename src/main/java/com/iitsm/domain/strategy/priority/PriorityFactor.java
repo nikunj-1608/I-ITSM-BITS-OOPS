@@ -5,6 +5,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.User;
 
+// OOP (Interface): each factor is a small class; the calculator treats them all alike (polymorphism).
 /**
  * Pattern: Strategy.
  * Represents an individual algorithmic factor contributing to incident priority scoring.

@@ -126,10 +126,11 @@ class AssignmentStrategyTest {
         List<Technician> filtered = filter.filterCandidates(
                 List.of(techSenior, techJuniorLoaded, techNetworkSpecialist),
                 "TEAM-APP",
+                IncidentCategory.NETWORK,
                 Set.of(techSenior.getId()) // Exclude techSenior
         );
 
-        // techJuniorLoaded has no capacity, techSenior is excluded -> falls back to cross-team techNetworkSpecialist
+        // techJuniorLoaded has no capacity, techSenior is excluded -> skilled cross-team techNetworkSpecialist
         assertThat(filtered).containsExactly(techNetworkSpecialist);
     }
 

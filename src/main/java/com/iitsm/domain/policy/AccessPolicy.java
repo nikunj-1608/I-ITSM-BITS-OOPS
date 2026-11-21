@@ -7,12 +7,20 @@ import com.iitsm.domain.model.IncidentAction;
 import com.iitsm.domain.model.User;
 import java.util.Objects;
 
+// OOP (Interface / port): the domain declares the rule; the application layer supplies the implementation (Dependency Inversion).
 /**
  * Pattern: Policy / Strategy.
  * Enforces polymorphic application-layer ownership and role authorization invariants.
  * Uses OOP dynamic dispatch on User subclasses rather than instanceof/switch anti-patterns.
  */
 public interface AccessPolicy {
+
+    /** The non-throwing form of {@link #enforceCanViewIncident}, for filtering lists. */
+    default boolean canViewIncident(User actor, Incident incident, String owningTeamId) {
+        Objects.requireNonNull(actor, "actor cannot be null");
+        Objects.requireNonNull(incident, "incident cannot be null");
+        return actor.canViewIncident(incident, owningTeamId);
+    }
 
     default void enforceCanViewIncident(User actor, Incident incident) {
         enforceCanViewIncident(actor, incident, null);

@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// OOP (Single responsibility): UserMapper only converts between domain objects and entities; it holds no business rule.
 /**
  * Maps between pure domain User models and UserJpaEntity persistence models.
  */
@@ -102,6 +103,7 @@ public final class UserMapper {
         user.setTokenVersion(entity.getTokenVersion());
         user.setLockedUntil(entity.getLockedUntil());
         user.setVersion(entity.getVersion());
+        user.restoreMfa(entity.isMfaEnabled(), entity.getMfaSecret(), entity.getMfaLastStep());
     }
 
     public static UserJpaEntity toJpaEntity(User domain) {
@@ -119,7 +121,11 @@ public final class UserMapper {
         entity.setTokenVersion(domain.getTokenVersion());
         entity.setLockedUntil(domain.getLockedUntil());
         entity.setVersion(domain.getVersion());
+        entity.setMfaEnabled(domain.isMfaEnabled());
+        entity.setMfaSecret(domain.getMfaSecret());
+        entity.setMfaLastStep(domain.getMfaLastStep());
 
+        // OOP (Polymorphism limit): the entity needs subtype fields, so the mapper checks the real class before reading them.
         if (domain instanceof Employee emp) {
             entity.setUserType("EMPLOYEE");
             entity.setDesignation(emp.getDesignation());

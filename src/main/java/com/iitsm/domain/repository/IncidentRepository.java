@@ -22,6 +22,12 @@ public interface IncidentRepository {
 
     List<Incident> findByAssigneeId(String assigneeId);
 
+    /** The tickets of the given IT services, in every status. */
+    List<Incident> findByServiceIdIn(java.util.Collection<String> serviceIds);
+
+    /** The tickets of the given categories, in every status (a team's queue is the tickets of the categories it handles). */
+    List<Incident> findByCategoryIn(java.util.Collection<IncidentCategory> categories);
+
     List<Incident> findByStatus(IncidentStatus status);
 
     List<Incident> findByCategory(IncidentCategory category);
@@ -32,6 +38,9 @@ public interface IncidentRepository {
     List<Incident> findOpenIncidentsSince(Instant since);
 
     List<Incident> findActiveIncidents();
+
+    /** Ids of the tickets the SLA scan watches (not VERIFIED or CLOSED); the scan loads and saves each in its own transaction. */
+    List<String> findActiveIncidentIds();
 
     List<Incident> findByNeedsTriageTrue();
 

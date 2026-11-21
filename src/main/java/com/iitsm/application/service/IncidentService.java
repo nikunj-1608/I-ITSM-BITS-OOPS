@@ -10,13 +10,16 @@ import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.strategy.assignment.AssignmentStrategyRegistry;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * High-level Application Service facade coordinating incident operations.
  * Delegates specialized domains to {@link IncidentIntakePipeline},
- * {@link IncidentLifecycleService}, and {@link AdminIncidentService}.
+ * {@link TicketDispatchService}, {@link IncidentLifecycleService}, and {@link AdminIncidentService}.
  */
 @Service
 @Transactional
@@ -45,27 +48,70 @@ public class IncidentService {
             long closedIncidents,
             long criticalP1Incidents) {}
 
+    private static final Logger log = LoggerFactory.getLogger(IncidentService.class);
+
+    /** Recorded as the assigner of tickets that are assigned automatically right after intake. */
+    private static final String INTAKE_ACTOR = "SYSTEM";
+
     private final IncidentIntakePipeline intakePipeline;
+    private final TicketDispatchService dispatchService;
     private final IncidentLifecycleService lifecycleService;
     private final AdminIncidentService adminIncidentService;
     private final AssignmentStrategyRegistry assignmentStrategyRegistry;
     private final DuplicateDetectionService duplicateDetectionService;
+    private final IntakeGate intakeGate;
 
     public IncidentService(
             IncidentIntakePipeline intakePipeline,
+            TicketDispatchService dispatchService,
             IncidentLifecycleService lifecycleService,
             AdminIncidentService adminIncidentService,
             AssignmentStrategyRegistry assignmentStrategyRegistry,
-            DuplicateDetectionService duplicateDetectionService) {
+            DuplicateDetectionService duplicateDetectionService,
+            IntakeGate intakeGate) {
         this.intakePipeline = Objects.requireNonNull(intakePipeline, "intakePipeline cannot be null");
+        this.dispatchService = Objects.requireNonNull(dispatchService, "dispatchService cannot be null");
         this.lifecycleService = Objects.requireNonNull(lifecycleService, "lifecycleService cannot be null");
         this.adminIncidentService = Objects.requireNonNull(adminIncidentService, "adminIncidentService cannot be null");
         this.assignmentStrategyRegistry = Objects.requireNonNull(assignmentStrategyRegistry, "assignmentStrategyRegistry cannot be null");
         this.duplicateDetectionService = Objects.requireNonNull(duplicateDetectionService, "duplicateDetectionService cannot be null");
+        this.intakeGate = Objects.requireNonNull(intakeGate, "intakeGate cannot be null");
     }
 
+    /**
+     * Not transactional itself (ADR-018): the intake pipeline opens and commits its own transaction, and the intake
+     * gate must enclose that whole transaction, commit included, so the next report starts after this one is visible.
+     * The technician is assigned afterwards in a second transaction (ADR-026), still inside the gate, so reports do
+     * not race each other for the same technician's last slot.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Incident createIncident(String reporterIdOrEmail, String title, String description) {
-        return intakePipeline.processIntake(reporterIdOrEmail, title, description);
+        return intakeGate.runExclusive(() -> {
+            IncidentIntakePipeline.IntakeResult intake =
+                    intakePipeline.processIntake(reporterIdOrEmail, title, description);
+            return intake.awaitingAutomaticAssignment() ? assignAfterIntake(intake.incident()) : intake.incident();
+        });
+    }
+
+    /**
+     * The ticket is already committed, so nothing that goes wrong here may hide it from the reporter. A failed or
+     * lost assignment rolls back together with its capacity slot and leaves the ticket waiting for the dispatcher.
+     * This is an isolation boundary after the point of no return: a lost race is logged as a warning, any other
+     * failure as an error with its stack trace.
+     */
+    private Incident assignAfterIntake(Incident created) {
+        try {
+            TicketDispatchService.DispatchResult result = dispatchService.dispatchOne(created.getId(), INTAKE_ACTOR);
+            return result.outcome() == TicketDispatchService.Outcome.ASSIGNED ? result.incident() : created;
+        } catch (RuntimeException failure) {
+            if (ConcurrencyConflicts.isConflict(failure)) {
+                log.warn("Automatic assignment of incident {} lost a race; left for the dispatcher: {}",
+                        created.getId(), failure.getMessage());
+            } else {
+                log.error("Automatic assignment of incident {} failed; left for the dispatcher", created.getId(), failure);
+            }
+            return created;
+        }
     }
 
     public Incident getIncident(String actorIdOrEmail, String incidentId) {
@@ -104,8 +150,8 @@ public class IncidentService {
         return lifecycleService.startInvestigation(incidentId, technicianId);
     }
 
-    public Incident addNote(String incidentId, String authorId, String authorName, String noteText, boolean internalOnly) {
-        return lifecycleService.addNote(incidentId, authorId, authorName, noteText, internalOnly);
+    public Incident addNote(String incidentId, String authorIdOrEmail, String noteText, boolean internalOnly) {
+        return lifecycleService.addNote(incidentId, authorIdOrEmail, noteText, internalOnly);
     }
 
     public Incident requestInfo(String incidentId, String technicianId, String message) {
@@ -151,6 +197,10 @@ public class IncidentService {
 
     public Incident overridePriority(String incidentId, String adminId, Priority newPriority, String reason) {
         return adminIncidentService.overridePriority(incidentId, adminId, newPriority, reason);
+    }
+
+    public Incident rejectReassignment(String requestId, String adminId, String reason) {
+        return adminIncidentService.rejectReassignment(requestId, adminId, reason);
     }
 
     public Incident reclassify(String incidentId, String adminId, IncidentCategory newCategory, String serviceId, String reason) {

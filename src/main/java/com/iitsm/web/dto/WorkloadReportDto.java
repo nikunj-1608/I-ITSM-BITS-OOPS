@@ -2,6 +2,7 @@ package com.iitsm.web.dto;
 
 import java.util.List;
 
+// OOP (Immutability): WorkloadReportDto is a record, so it is a read-only data carrier with no setters.
 public record WorkloadReportDto(
         List<TechnicianLoadItem> technicianLoads,
         List<TeamLoadItem> teamLoads,

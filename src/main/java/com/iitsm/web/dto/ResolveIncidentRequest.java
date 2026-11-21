@@ -4,6 +4,7 @@ import com.iitsm.domain.model.IncidentCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+// OOP (Immutability): ResolveIncidentRequest is a record, so it is a read-only data carrier with no setters.
 public record ResolveIncidentRequest(
         @NotBlank(message = "Root cause cannot be blank")
         String rootCause,

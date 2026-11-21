@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+// OOP (Polymorphism / Open-Closed): InAppChannel is one NotificationChannel; the router sends through the interface and a new channel is just a new class.
 /**
  * Pattern: Adapter.
  * Adapts internal notifications to in-app persistence and real-time SSE push.
@@ -33,6 +34,7 @@ public class InAppChannel implements NotificationChannel {
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
+    // OOP (Method overriding): this channel's own way of delivering a notification.
     @Override
     public String getChannelName() {
         return CHANNEL_NAME;

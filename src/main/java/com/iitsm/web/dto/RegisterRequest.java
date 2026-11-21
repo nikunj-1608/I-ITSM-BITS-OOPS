@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+// OOP (Immutability): RegisterRequest is a record, so it is a read-only data carrier with no setters.
 public record RegisterRequest(
         @NotBlank(message = "Name is required")
         String name,

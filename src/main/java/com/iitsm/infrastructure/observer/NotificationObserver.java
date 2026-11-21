@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+// OOP (Observer pattern): NotificationObserver is a subscriber; the publisher does not know what it does with an event.
 /**
  * Pattern: Observer.
  * Asynchronous / decoupled domain event listener translating events into persona notifications.
@@ -33,6 +34,13 @@ public class NotificationObserver implements DomainEventListener {
         this.notificationFactory = Objects.requireNonNull(notificationFactory, "notificationFactory cannot be null");
         this.notificationRouter = Objects.requireNonNull(notificationRouter, "notificationRouter cannot be null");
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
+    }
+
+    // OOP (Method overriding): called by the publisher for every DomainEvent through the listener interface.
+    /** Notifications describe committed changes only (ADR-017): never send one for a transaction that rolls back. */
+    @Override
+    public boolean deferUntilCommit() {
+        return true;
     }
 
     @Override

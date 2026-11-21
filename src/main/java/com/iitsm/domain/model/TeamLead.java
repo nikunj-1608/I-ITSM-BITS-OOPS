@@ -2,6 +2,7 @@ package com.iitsm.domain.model;
 
 import java.util.Set;
 
+// OOP (Multilevel inheritance): TeamLead IS-A Technician IS-A User; it overrides only the rules that differ.
 /**
  * OOP: Specialised Technician with team leadership and escalation privileges.
  * Inherits all Technician capabilities and represents real is-a hierarchy.
@@ -20,6 +21,7 @@ public class TeamLead extends Technician {
         super(id, name, email, passwordHash, UserRole.ROLE_TEAM_LEAD, skills, experienceYears, maxCapacity, supportTeamId);
     }
 
+    // OOP (Method overriding): replaces the Technician rule with a wider, team-wide one.
     @Override
     public boolean canViewIncident(Incident incident, String owningTeamId) {
         if (incident == null) return false;
@@ -46,6 +48,19 @@ public class TeamLead extends Technician {
                     || action == IncidentAction.REASSIGN;
         }
         return false;
+    }
+
+    // OOP (Method overriding): the User default is false; only a TeamLead returns true.
+    /** A team lead may move the tickets of their team between the team's technicians (ADR-045). */
+    @Override
+    public boolean canReassignTeamTickets() {
+        return true;
+    }
+
+    /** A team lead may promote any resolution they can see (ADR-042); the ticket's access rules still apply. */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null;
     }
 }
 

@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+// OOP (Separation of concerns): UserJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 /**
  * JPA entity representing user persistence.
  * Maps User hierarchy and specific persona fields into a unified schema structure.
@@ -57,6 +58,15 @@ public class UserJpaEntity {
 
     @Column(name = "locked_until")
     private Instant lockedUntil;
+
+    @Column(name = "mfa_enabled", nullable = false)
+    private boolean mfaEnabled = false;
+
+    @Column(name = "mfa_secret", length = 255)
+    private String mfaSecret;
+
+    @Column(name = "mfa_last_step")
+    private Long mfaLastStep;
 
     @Column(name = "user_type", nullable = false, length = 32)
     private String userType;
@@ -136,6 +146,15 @@ public class UserJpaEntity {
 
     public boolean isLocked() { return locked; }
     public void setLocked(boolean locked) { this.locked = locked; }
+
+    public boolean isMfaEnabled() { return mfaEnabled; }
+    public void setMfaEnabled(boolean mfaEnabled) { this.mfaEnabled = mfaEnabled; }
+
+    public String getMfaSecret() { return mfaSecret; }
+    public void setMfaSecret(String mfaSecret) { this.mfaSecret = mfaSecret; }
+
+    public Long getMfaLastStep() { return mfaLastStep; }
+    public void setMfaLastStep(Long mfaLastStep) { this.mfaLastStep = mfaLastStep; }
 
     public int getTokenVersion() { return tokenVersion; }
     public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }

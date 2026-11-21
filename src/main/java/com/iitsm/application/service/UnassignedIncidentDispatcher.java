@@ -1,126 +1,81 @@
 package com.iitsm.application.service;
 
-import com.iitsm.domain.event.DomainEvent;
-import com.iitsm.domain.event.DomainEventPublisher;
+import com.iitsm.application.service.TicketDispatchService.Outcome;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentStatus;
-import com.iitsm.domain.model.ItService;
-import com.iitsm.domain.model.Technician;
 import com.iitsm.domain.repository.IncidentRepository;
-import com.iitsm.domain.repository.ItServiceRepository;
-import com.iitsm.domain.repository.TechnicianRepository;
-import com.iitsm.domain.strategy.assignment.AssignmentRecommendation;
-import com.iitsm.domain.strategy.assignment.AssignmentStrategy;
-import com.iitsm.domain.strategy.assignment.AssignmentStrategyRegistry;
-import com.iitsm.domain.strategy.assignment.CandidateFilter;
-import java.time.Clock;
-import java.time.Instant;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Scheduled background dispatcher that periodically scans for unassigned CLASSIFIED incidents
  * and assigns them as technician capacity becomes available.
+ *
+ * <p>Each ticket is assigned in a transaction of its own ({@link TicketDispatchService#dispatchOne}), so one ticket that
+ * fails or loses a race never undoes the others, and a failed attempt never leaves a capacity slot behind (ADR-026).
+ * This class is a scheduler boundary: a failure on one ticket is logged (a lost race as a warning, anything else as an
+ * error with its stack trace) and the cycle goes on; the ticket is tried again in the next cycle.
  */
 @Service
 public class UnassignedIncidentDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(UnassignedIncidentDispatcher.class);
 
-    private final IncidentRepository incidentRepository;
-    private final TechnicianRepository technicianRepository;
-    private final ItServiceRepository itServiceRepository;
-    private final CandidateFilter candidateFilter;
-    private final AssignmentStrategyRegistry strategyRegistry;
-    private final TechnicianAssignmentService technicianAssignmentService;
-    private final DomainEventPublisher eventPublisher;
-    private final Clock clock;
+    /** Recorded as the assigner of tickets this job assigns. */
+    static final String ACTOR = "DISPATCHER";
 
-    public UnassignedIncidentDispatcher(
-            IncidentRepository incidentRepository,
-            TechnicianRepository technicianRepository,
-            ItServiceRepository itServiceRepository,
-            CandidateFilter candidateFilter,
-            AssignmentStrategyRegistry strategyRegistry,
-            TechnicianAssignmentService technicianAssignmentService,
-            DomainEventPublisher eventPublisher,
-            Clock clock) {
+    private final IncidentRepository incidentRepository;
+    private final TicketDispatchService dispatchService;
+
+    public UnassignedIncidentDispatcher(IncidentRepository incidentRepository, TicketDispatchService dispatchService) {
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
-        this.technicianRepository = Objects.requireNonNull(technicianRepository, "technicianRepository cannot be null");
-        this.itServiceRepository = Objects.requireNonNull(itServiceRepository, "itServiceRepository cannot be null");
-        this.candidateFilter = Objects.requireNonNull(candidateFilter, "candidateFilter cannot be null");
-        this.strategyRegistry = Objects.requireNonNull(strategyRegistry, "strategyRegistry cannot be null");
-        this.technicianAssignmentService = Objects.requireNonNull(technicianAssignmentService, "technicianAssignmentService cannot be null");
-        this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher cannot be null");
-        this.clock = Objects.requireNonNull(clock, "clock cannot be null");
+        this.dispatchService = Objects.requireNonNull(dispatchService, "dispatchService cannot be null");
     }
 
-    @Scheduled(fixedDelay = 30000, initialDelay = 10000)
-    @Transactional
+    /** Not transactional itself: every ticket gets its own transaction. Returns how many tickets were assigned. */
+    @Scheduled(fixedDelayString = "${iitsm.dispatcher.interval-ms:30000}",
+            initialDelayString = "${iitsm.dispatcher.initial-delay-ms:10000}")
     public int dispatchWaitingIncidents() {
-        List<Incident> unassigned = incidentRepository.findByStatus(IncidentStatus.CLASSIFIED).stream()
-                .filter(i -> i.getAssigneeId() == null)
-                .filter(i -> !i.isNeedsTriage()) // Skip tickets requiring human triage
+        List<String> waiting = waitingIncidentIds();
+        int assigned = 0;
+        for (String incidentId : waiting) {
+            Outcome outcome = dispatch(incidentId);
+            if (outcome == Outcome.ASSIGNED) {
+                assigned++;
+            } else if (outcome == Outcome.NO_CAPACITY) {
+                log.warn("Dispatcher found no technician with free capacity; {} incident(s) remain waiting",
+                        waiting.size() - assigned);
+                break; // Still no capacity anywhere; every remaining incident would see the same pool
+            }
+        }
+        return assigned;
+    }
+
+    /** Waiting tickets, most urgent first; tickets held back for human triage are never touched (ADR-009). */
+    private List<String> waitingIncidentIds() {
+        return incidentRepository.findByStatus(IncidentStatus.CLASSIFIED).stream()
+                .filter(Incident::isAwaitingAutomaticAssignment)
                 .sorted(Comparator.comparing(Incident::getPriority, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(Incident::getId)
                 .collect(Collectors.toList());
+    }
 
-        if (unassigned.isEmpty()) {
-            return 0;
+    private Outcome dispatch(String incidentId) {
+        try {
+            return dispatchService.dispatchOne(incidentId, ACTOR).outcome();
+        } catch (RuntimeException failure) {
+            if (ConcurrencyConflicts.isConflict(failure)) {
+                log.warn("Dispatcher lost a race for incident {}; retrying next cycle: {}", incidentId, failure.getMessage());
+            } else {
+                log.error("Dispatcher could not assign incident {}; retrying next cycle", incidentId, failure);
+            }
+            return Outcome.NOT_ASSIGNED;
         }
-
-        int assignedCount = 0;
-        Instant now = clock.instant();
-
-        for (Incident incident : unassigned) {
-            String serviceId = incident.getServiceId();
-            String preferredTeamId = null;
-            if (serviceId != null) {
-                preferredTeamId = itServiceRepository.findById(serviceId)
-                        .map(ItService::getOwningTeamId)
-                        .orElse(null);
-            }
-
-            List<Technician> available = technicianRepository.findAvailableTechnicians().stream()
-                    .filter(Technician::hasCapacity)
-                    .collect(Collectors.toList());
-
-            if (available.isEmpty()) {
-                continue; // Still no capacity anywhere
-            }
-
-            java.util.Set<String> exclusions = incident.getExcludedTechnicianIds();
-            List<Technician> candidates = candidateFilter.filterCandidates(available, preferredTeamId, exclusions)
-                    .stream().filter(Technician::hasCapacity).collect(Collectors.toList());
-
-            if (candidates.isEmpty() && (exclusions == null || exclusions.isEmpty())) {
-                candidates = available;
-            }
-
-            if (!candidates.isEmpty()) {
-                AssignmentStrategy activeStrategy = strategyRegistry.getActiveStrategy();
-                java.util.Optional<String> assignedId = technicianAssignmentService.tryAssignTechnician(incident, candidates, activeStrategy, now);
-                if (assignedId.isPresent()) {
-                    incident.assign(assignedId.get(), now);
-                    incidentRepository.save(incident);
-
-                    eventPublisher.publish(new DomainEvent.IncidentAssigned(
-                            UUID.randomUUID().toString(), now, incident.getId(), "DISPATCHER", assignedId.get()));
-
-                    log.info("Dispatcher assigned waiting incident {} to technician {}", incident.getId(), assignedId.get());
-                    assignedCount++;
-                }
-            }
-        }
-        return assignedCount;
     }
 }
-

@@ -1,5 +1,6 @@
 package com.iitsm.domain.chain.escalation;
 
+// OOP (final utility class + static method): builds the chain in one place; the handlers are linked like a linked list.
 /**
  * Factory assembling the default Multi-Tier Escalation Chain of Responsibility.
  * Flow: Tier 4 (IT Manager) -> Tier 3 (System Admin) -> Tier 2 (Team Lead) -> Tier 1 (Technician).

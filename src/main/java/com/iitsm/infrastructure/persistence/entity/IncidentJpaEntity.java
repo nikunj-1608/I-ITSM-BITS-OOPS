@@ -22,9 +22,11 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+// OOP (Separation of concerns): IncidentJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 /**
  * JPA entity representing Incident aggregate root persistence.
  * Includes @Version for optimistic locking to safeguard against concurrent assignment race conditions.
@@ -111,6 +113,12 @@ public class IncidentJpaEntity {
     @OrderBy("createdAt ASC")
     private List<InvestigationNoteJpaEntity> notes = new ArrayList<>();
 
+    // Explainable priority breakdown. A Set (not a List) so it can be fetched eagerly alongside the notes bag;
+    // ordered by generated id, i.e. the order the calculator produced the factors.
+    @OneToMany(mappedBy = "incident", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private Set<FactorContributionJpaEntity> factorContributions = new LinkedHashSet<>();
+
     // Resolution
     @OneToOne(mappedBy = "incident", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     private ResolutionJpaEntity resolution;
@@ -186,6 +194,11 @@ public class IncidentJpaEntity {
 
     public List<InvestigationNoteJpaEntity> getNotes() { return notes; }
     public void setNotes(List<InvestigationNoteJpaEntity> notes) { this.notes = notes; }
+
+    public Set<FactorContributionJpaEntity> getFactorContributions() { return factorContributions; }
+    public void setFactorContributions(Set<FactorContributionJpaEntity> factorContributions) {
+        this.factorContributions = factorContributions;
+    }
 
     public ResolutionJpaEntity getResolution() { return resolution; }
     public void setResolution(ResolutionJpaEntity resolution) {

@@ -1,0 +1,42 @@
+@startuml team-lead-reassignment
+title Team lead gives a ticket to a technician of the team (ADR-045, Phase M3)
+
+actor "Team lead" as Lead
+participant "Team Lead tab\n(app.js)" as UI
+participant "TechnicianController\nPOST /api/technician/incidents/{id}/reassign\n@PreAuthorize TEAM_LEAD" as Ctl
+participant "TeamLeadReassignmentService\n(one transaction)" as Svc
+participant "Incident\n(State Pattern)" as Inc
+participant "Technician" as Tech
+participant "AssignmentDecisionRecorder\n(MANDATORY)" as Rec
+participant "DomainEventPublisher" as Pub
+
+Lead -> UI : Assign / Reassign
+UI -> Ctl : GET /api/admin/technicians (own team)\nGET /api/technician/incidents/{id}
+Ctl --> UI : roster + ticket (reassignable = server flag)
+Lead -> UI : pick technician + reason
+UI -> Ctl : {technicianId, reason}
+Ctl -> Svc : reassign(ticket, lead, technician, reason)
+Svc -> Svc : reason present?\nlead.canReassignTeamTickets()\nAccessPolicy REASSIGN on the ticket\nnot in triage, status allows it
+Svc -> Svc : target in the lead's own team,\nactive, not offline, not the holder
+alt ticket held by a technician
+  Svc -> Inc : flagWrongDomain (back to CLASSIFIED)
+  Svc -> Tech : previous holder.releaseIncident
+end
+Svc -> Inc : assign(target)  [CLASSIFIED -> ASSIGNED]
+Svc -> Tech : target.assignIncident  (full -> 409, all undone)
+Svc -> Inc : addNote(internal: reason)
+Svc -> Rec : recordManual(actor = lead)
+Svc -> Pub : IncidentAssigned
+Svc --> Ctl : saved ticket
+Ctl --> UI : 200 TechnicianIncidentView
+UI -> UI : close dialog, reload the open tab
+
+note right of Svc
+  Refusals: 403 not a lead / other team's ticket /
+  other team's technician / ticket in triage;
+  409 status not allowed, offline or full technician;
+  404 unknown ticket or technician; 400 missing reason,
+  same technician. Administrators only see the decision
+  ("Why This Technician").
+end note
+@enduml

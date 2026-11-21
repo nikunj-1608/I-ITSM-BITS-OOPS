@@ -3,6 +3,7 @@ package com.iitsm.web.dto;
 import com.iitsm.domain.model.Notification;
 import java.time.Instant;
 
+// OOP (Immutability): NotificationDto is a record, so it is a read-only data carrier with no setters.
 /**
  * DTO representing an in-app user notification.
  */

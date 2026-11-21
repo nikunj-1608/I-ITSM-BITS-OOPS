@@ -8,6 +8,7 @@ import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.persistence.entity.UserJpaEntity;
 import com.iitsm.infrastructure.persistence.mapper.UserMapper;
 import com.iitsm.infrastructure.persistence.repository.SpringDataUserRepository;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): UserRepositoryAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 /**
  * Pattern: Adapter / Repository.
  * Adapts SpringDataUserRepository to the pure Java UserRepository domain port.
@@ -24,6 +26,7 @@ public class UserRepositoryAdapter implements UserRepository {
 
     private final SpringDataUserRepository springDataRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public UserRepositoryAdapter(SpringDataUserRepository springDataRepository) {
         this.springDataRepository = Objects.requireNonNull(springDataRepository, "springDataRepository cannot be null");
     }
@@ -57,6 +60,21 @@ public class UserRepositoryAdapter implements UserRepository {
             return springDataRepository.findByEmail(email.value()).map(UserMapper::toDomain);
         } catch (DataAccessException ex) {
             throw new PersistenceFailureException("Failed to find user by email: " + email, ex);
+        }
+    }
+
+    @Override
+    public List<User> findAllByIds(Collection<String> ids) {
+        Objects.requireNonNull(ids, "ids cannot be null");
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return springDataRepository.findAllById(ids).stream()
+                    .map(UserMapper::toDomain)
+                    .collect(Collectors.toList());
+        } catch (DataAccessException ex) {
+            throw new PersistenceFailureException("Failed to find users by IDs", ex);
         }
     }
 

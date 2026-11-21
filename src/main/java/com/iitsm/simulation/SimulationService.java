@@ -4,7 +4,9 @@ import com.iitsm.application.service.DuplicateDetectionService;
 import com.iitsm.application.service.EscalationService;
 import com.iitsm.application.service.IncidentService;
 import com.iitsm.application.service.SlaService;
+import com.iitsm.domain.exception.ValidationException;
 import com.iitsm.domain.model.EscalationRecord;
+import com.iitsm.domain.model.EnumText;
 import com.iitsm.domain.model.Feedback;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
@@ -37,6 +39,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class SimulationService {
 
     private static final Logger log = LoggerFactory.getLogger(SimulationService.class);
+
+    /** The longest single advance a request may ask for: ten years. */
+    public static final long MAX_ADVANCE_MINUTES = Duration.ofDays(3650).toMinutes();
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("UTC"));
 
     private final Clock clock;
@@ -81,6 +86,17 @@ public class SimulationService {
         }
     }
 
+    /**
+     * Advances the clock by a number of minutes from a request. Zero or a negative number is refused (the clock only
+     * moves forward), and so is more than {@link #MAX_ADVANCE_MINUTES}, which also keeps the arithmetic from overflowing.
+     */
+    public synchronized void advanceClockByMinutes(long minutes) {
+        if (minutes < 1 || minutes > MAX_ADVANCE_MINUTES) {
+            throw new ValidationException("minutes", "must be between 1 and " + MAX_ADVANCE_MINUTES + ": " + minutes);
+        }
+        advanceClock(Duration.ofMinutes(minutes));
+    }
+
     public synchronized void advanceClock(Duration duration) {
         if (clock instanceof AdjustableClock adj) {
             adj.fastForward(duration);
@@ -108,7 +124,8 @@ public class SimulationService {
             case "S3" -> runScenario3WrongDomainAndTriage();
             case "S4" -> runScenario4DuplicateStormAvalanche();
             case "S5" -> runScenario5RejectionLoopAndSlaPausing();
-            default -> throw new IllegalArgumentException("Unknown simulation scenario: " + scenarioId + " (Valid: S1, S2, S3, S4, S5)");
+            default -> throw new ValidationException("scenarioId", "unknown simulation scenario '"
+                    + EnumText.echo(scenarioId) + "'. Valid scenarios: S1, S2, S3, S4, S5");
         };
     }
 

@@ -9,6 +9,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
+// OOP (Separation of concerns): FeedbackJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 @Entity
 @Table(name = "feedback")
 public class FeedbackJpaEntity {

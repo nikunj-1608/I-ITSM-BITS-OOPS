@@ -1,0 +1,27 @@
+# New tickets for the suggestion benchmark (ADR-040), written in other words than the past fixes.
+# expected: the past fix that should be in the top 3, or NONE when no past fix of the category fits.
+id	category	title	description	expected
+NT-01	NETWORK	Cannot connect to VPN from home	AnyConnect shows a certificate warning and will not open the VPN tunnel to the office gateway.	PR-NET-1
+NT-02	NETWORK	Wireless keeps disconnecting on third floor	My laptop loses the wifi connection every few minutes near the meeting rooms on floor 3.	PR-NET-2
+NT-03	NETWORK	Intranet hostname not found	The intranet page fails with host not found but google opens fine, looks like DNS.	PR-NET-3
+NT-04	DATABASE	Month end report query never completes	The finance report on the postgres replica runs for hours and then times out.	PR-DB-1
+NT-05	DATABASE	Too many connections error from postgres	The order service cannot get a database connection, postgres says too many connections.	PR-DB-2
+NT-06	DATABASE	Deadlock errors when billing runs	The billing job fails with deadlock victim messages on SQL Server.	PR-DB-3
+NT-07	HARDWARE	External monitor black on the dock	When I put my laptop in the docking station the monitor stays black.	PR-HW-2
+NT-08	HARDWARE	Printer gives empty pages	The printer near reception pulls paper through but nothing is printed, maybe toner.	PR-HW-3
+NT-09	SOFTWARE	Excel closes when I open a file with macros	Every macro workbook makes Excel crash straight away.	PR-SW-1
+NT-10	SOFTWARE	Calendar not syncing in Outlook	Meetings I accept on my phone do not show in the Outlook calendar on my laptop.	PR-SW-2
+NT-11	SECURITY	Email pretending to be payroll	I got an email from payroll asking me to confirm my password, it looks like phishing.	PR-SEC-1
+NT-12	SECURITY	Malware alert on finance share	Antivirus keeps quarantining a document on the finance shared drive.	PR-SEC-2
+NT-13	AUTHENTICATION	Authenticator code not accepted	My MFA code from the authenticator app is rejected every time I sign in.	PR-AUTH-2
+NT-14	AUTHENTICATION	SSO redirects to login again	After the password the single sign-on page sends me back to the login page.	PR-AUTH-3
+NT-15	APPLICATION	Pay button gives internal server error	Customers get HTTP 500 on the checkout page when they try to pay.	PR-APP-1
+NT-16	CLOUD	Pods in CrashLoopBackOff after upgrade	After the cluster upgrade the payment pods keep restarting on Kubernetes.	PR-CLOUD-1
+NT-17	CLOUD	SAS token error on Azure uploads	Uploading to the Azure storage account fails with an authorization error about the token.	PR-CLOUD-3
+NT-18	STORAGE	No space left on department share	I cannot save anything to the shared drive, it says the disk is full.	PR-STO-1
+NT-19	STORAGE	File server backup timing out	The nightly file server backup stopped finishing and times out.	PR-STO-2
+NT-20	HARDWARE	Keyboard keys stick after coffee spill	Several keys on my keyboard stick since I spilled coffee on it this morning.	NONE
+NT-21	DATABASE	Need a new schema for the marketing team	Please create a new schema with read access for the marketing analysts.	NONE
+NT-22	APPLICATION	Request to change the portal logo colour	Marketing asks for the colour of the logo on the portal header to be changed.	NONE
+NT-23	SOFTWARE	Need a licence for the diagram tool	Please install the diagram drawing tool on my laptop, I need a licence.	NONE
+NT-24	CLOUD	Question about cloud training budget	Is there budget for a cloud certification course for our team next quarter?	NONE

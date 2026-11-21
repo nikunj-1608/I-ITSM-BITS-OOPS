@@ -8,12 +8,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+// OOP (Immutability): TechnicianIncidentView is a record, so it is a read-only data carrier with no setters.
 /**
  * Persona DTO for Technician console.
  * Includes operational details, priority, SLA deadline tracking, investigation notes, and state-driven actions.
  */
 public record TechnicianIncidentView(
         String id,
+        String displayId,
         String title,
         String description,
         String reporterId,
@@ -32,7 +34,9 @@ public record TechnicianIncidentView(
         ResolutionView resolution,
         Set<String> allowedActions,
         int reopenCount,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean promotable,
+        boolean reassignable) {
 
     public record InvestigationNoteView(
             String id,
@@ -48,5 +52,6 @@ public record TechnicianIncidentView(
             String preventiveAction,
             String confirmedCategory,
             String resolvedBy,
+            String resolvedByName,
             Instant resolvedAt) {}
 }

@@ -5,12 +5,14 @@ import com.iitsm.domain.model.Priority;
 import com.iitsm.domain.model.SlaStatus;
 import java.util.Optional;
 
+// OOP (Inheritance): Tier4ItManagerHandler extends the abstract handler and only supplies its own tier rule (Chain of Responsibility).
 /**
  * Pattern: Chain of Responsibility (Tier 4 Handler).
  * Handles catastrophic P1 breaches on Mission Critical IT services, directly alerting executive IT Leadership.
  */
 public class Tier4ItManagerHandler extends AbstractEscalationHandler {
 
+    // OOP (Method overriding): implements handle(...) from EscalationHandler; if this tier does not apply, it forwards to the next handler.
     @Override
     public Optional<EscalationAction> handle(Incident incident, EscalationContext context) {
         if (incident.getSlaTracker() != null) {

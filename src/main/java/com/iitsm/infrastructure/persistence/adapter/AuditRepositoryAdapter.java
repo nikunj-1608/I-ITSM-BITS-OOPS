@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): AuditRepositoryAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 /**
  * Adapter implementing the pure domain AuditRepository port via SpringDataAuditRecordRepository.
  */
@@ -20,6 +21,7 @@ public class AuditRepositoryAdapter implements AuditRepository {
 
     private final SpringDataAuditRecordRepository springDataRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public AuditRepositoryAdapter(SpringDataAuditRecordRepository springDataRepository) {
         this.springDataRepository = Objects.requireNonNull(springDataRepository, "springDataRepository cannot be null");
     }

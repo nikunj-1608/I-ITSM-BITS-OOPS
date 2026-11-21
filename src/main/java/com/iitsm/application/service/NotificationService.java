@@ -1,6 +1,7 @@
 package com.iitsm.application.service;
 
 import com.iitsm.application.port.RealtimeNotificationPort;
+import com.iitsm.domain.exception.ServiceNotFoundException;
 import com.iitsm.domain.model.Notification;
 import com.iitsm.domain.repository.NotificationRepository;
 import java.util.List;
@@ -34,20 +35,23 @@ public class NotificationService {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(recipientId);
     }
 
+    /**
+     * Marks a notification as read. Only its recipient may do so: for anyone else the notification does not exist, the
+     * same answer as for an id that was never issued (ADR-032).
+     */
     @Transactional
-    public void markDelivered(String notificationId) {
-        notificationRepository.findById(notificationId).ifPresent(n -> {
-            Notification updated = new Notification(
-                    n.getId(),
-                    n.getRecipientId(),
-                    n.getChannel(),
-                    n.getSubject(),
-                    n.getMessage(),
-                    true,
-                    n.getCreatedAt()
-            );
-            notificationRepository.save(updated);
-        });
+    public void markDelivered(String notificationId, String actorId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .filter(n -> n.getRecipientId().equals(actorId))
+                .orElseThrow(() -> new ServiceNotFoundException("Notification not found: " + notificationId));
+        notificationRepository.save(new Notification(
+                notification.getId(),
+                notification.getRecipientId(),
+                notification.getChannel(),
+                notification.getSubject(),
+                notification.getMessage(),
+                true,
+                notification.getCreatedAt()));
     }
 }
 

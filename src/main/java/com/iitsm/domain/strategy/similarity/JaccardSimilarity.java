@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// OOP (Realization): a second implementation of SimilarityMeasure, proving the interface can be swapped.
 /**
  * Pattern: Strategy.
  * Computes Jaccard index (set intersection over union) on normalized token sets.

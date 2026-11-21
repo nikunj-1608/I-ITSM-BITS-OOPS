@@ -48,6 +48,7 @@ public class SupportTeam {
     }
 
     public Set<IncidentCategory> getHandledCategories() {
+        // OOP (Encapsulation): the getter hands out a read-only view, not the internal set.
         return Collections.unmodifiableSet(handledCategories);
     }
 

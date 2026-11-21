@@ -6,6 +6,7 @@ import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.User;
 import java.util.Locale;
 
+// OOP (Open/Closed + Polymorphism): UrgencyFactor is one PriorityFactor; a new factor is a new class, the calculator is not edited.
 /**
  * Pattern: Strategy.
  * Factor evaluating textual urgency cues and time sensitivity (weight: 0.15).
@@ -15,6 +16,7 @@ public class UrgencyFactor implements PriorityFactor {
     public static final String FACTOR_NAME = "Urgency";
     public static final double WEIGHT = 0.15;
 
+    // OOP (Method overriding): implements the factor contract declared by PriorityFactor.
     @Override
     public FactorContribution evaluate(Incident incident, User reporter, ItService service, IncidentEvaluationContext context) {
         String text = (incident.getTitle() + " " + incident.getDescription()).toLowerCase(Locale.ROOT);

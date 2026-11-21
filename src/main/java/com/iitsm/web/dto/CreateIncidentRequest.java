@@ -3,6 +3,7 @@ package com.iitsm.web.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+// OOP (Immutability): CreateIncidentRequest is a record, so it is a read-only data carrier with no setters.
 public record CreateIncidentRequest(
         @NotBlank(message = "Title is required")
         @Size(min = 5, max = 120, message = "Title must be between 5 and 120 characters")

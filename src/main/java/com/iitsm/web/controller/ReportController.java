@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+// OOP (Single responsibility): ReportController validates input, calls one application service and maps the result to a DTO; no business rule lives here.
 /**
  * REST controller exposing administrative operational reports and executive SLA compliance analytics.
  */
@@ -23,6 +24,7 @@ public class ReportController {
 
     private final ReportingService reportingService;
 
+    // OOP (Dependency Injection): services arrive through the constructor, so the controller depends on classes it is given, not ones it creates.
     public ReportController(ReportingService reportingService) {
         this.reportingService = Objects.requireNonNull(reportingService, "reportingService cannot be null");
     }

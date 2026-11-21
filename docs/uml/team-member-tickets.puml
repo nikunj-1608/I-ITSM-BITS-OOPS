@@ -1,0 +1,22 @@
+@startuml
+title Team Lead: current tickets of a team member (ADR-054)
+actor "Team lead" as L
+participant "Roster card\n(.tlm-card)" as C
+participant "app.js section 20" as J
+participant "Shared dialog\n(openModal)" as D
+participant "GET /api/technician/team-queue" as Q
+
+L -> C : click / Enter / Space
+C -> J : tlmCardActivated(card)
+J -> D : openModal(shell, "Loading tickets...")
+J -> Q : apiCall (GET only)
+Q --> J : tickets of the team (all statuses)
+J -> J : keep assigneeId == member\nand status not VERIFIED / CLOSED
+alt answer is still wanted
+  J -> D : fill list: id, name, title, type,\nprogress, details (read only)
+else dialog closed, replaced or signed out
+  J -> J : discard the answer
+end
+L -> D : cross, Close, Escape or backdrop
+D --> C : focus returns to the card
+@enduml

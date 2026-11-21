@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): TechnicianRepositoryAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 /**
  * Pattern: Adapter / Repository.
  * Adapts SpringDataUserRepository queries for Technician entities to TechnicianRepository domain port.
@@ -24,6 +25,7 @@ public class TechnicianRepositoryAdapter implements TechnicianRepository {
 
     private final SpringDataUserRepository springDataRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public TechnicianRepositoryAdapter(SpringDataUserRepository springDataRepository) {
         this.springDataRepository = Objects.requireNonNull(springDataRepository, "springDataRepository cannot be null");
     }

@@ -6,6 +6,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.User;
 
+// OOP (Open/Closed + Polymorphism): ReporterDesignationFactor is one PriorityFactor; a new factor is a new class, the calculator is not edited.
 /**
  * Pattern: Strategy.
  * Factor evaluating the reporting employee's organizational hierarchy level (weight: 0.15).
@@ -15,11 +16,13 @@ public class ReporterDesignationFactor implements PriorityFactor {
     public static final String FACTOR_NAME = "ReporterDesignation";
     public static final double WEIGHT = 0.15;
 
+    // OOP (Method overriding): implements the factor contract declared by PriorityFactor.
     @Override
     public FactorContribution evaluate(Incident incident, User reporter, ItService service, IncidentEvaluationContext context) {
         double rawScore;
         String explanation;
 
+        // Pattern matching for instanceof: tests the type and casts in one step; only an Employee has a designation.
         if (reporter instanceof Employee emp && emp.getDesignation() != null) {
             rawScore = emp.getDesignation().getPriorityWeight();
             explanation = String.format("Reporter designation '%s' contributes priority weight %.2f",

@@ -1,5 +1,6 @@
 package com.iitsm.domain.strategy.classification;
 
+// OOP (Interface): keyword, Naive Bayes and composite classifiers are interchangeable behind this type.
 /**
  * Pattern: Strategy.
  * Interface defining extensible incident classification algorithms.

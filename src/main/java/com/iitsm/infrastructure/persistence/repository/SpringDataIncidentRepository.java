@@ -38,6 +38,13 @@ public interface SpringDataIncidentRepository
     @Query("SELECT i FROM IncidentJpaEntity i WHERE i.status NOT IN ('VERIFIED', 'CLOSED')")
     List<IncidentJpaEntity> findActiveIncidents();
 
+    List<IncidentJpaEntity> findByServiceIdIn(java.util.Collection<String> serviceIds);
+
+    List<IncidentJpaEntity> findByCategoryIn(java.util.Collection<IncidentCategory> categories);
+
+    @Query("SELECT i.id FROM IncidentJpaEntity i WHERE i.status NOT IN ('VERIFIED', 'CLOSED')")
+    List<String> findActiveIncidentIds();
+
     long countByStatusIn(List<IncidentStatus> statuses);
 
     long countByPriority(Priority priority);

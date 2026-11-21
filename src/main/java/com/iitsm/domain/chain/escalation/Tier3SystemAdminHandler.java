@@ -6,12 +6,14 @@ import com.iitsm.domain.model.Priority;
 import com.iitsm.domain.model.SlaStatus;
 import java.util.Optional;
 
+// OOP (Inheritance): Tier3SystemAdminHandler extends the abstract handler and only supplies its own tier rule (Chain of Responsibility).
 /**
  * Pattern: Chain of Responsibility (Tier 3 Handler).
  * Handles general SLA breaches on P1/P2 tickets or incidents stuck unassigned in triage.
  */
 public class Tier3SystemAdminHandler extends AbstractEscalationHandler {
 
+    // OOP (Method overriding): implements handle(...) from EscalationHandler; if this tier does not apply, it forwards to the next handler.
     @Override
     public Optional<EscalationAction> handle(Incident incident, EscalationContext context) {
         if (incident.getSlaTracker() != null) {

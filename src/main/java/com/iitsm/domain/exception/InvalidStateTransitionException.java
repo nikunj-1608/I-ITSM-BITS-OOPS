@@ -3,6 +3,7 @@ package com.iitsm.domain.exception;
 import com.iitsm.domain.model.IncidentStatus;
 import java.util.Set;
 
+// OOP (Inheritance): a specific exception extends the project base; it carries extra context (state, action, allowed actions).
 /**
  * OOP: Thrown when an illegal state transition is attempted on an incident.
  * Encapsulates the origin state, attempted action, and the set of currently allowed actions.
@@ -11,6 +12,7 @@ public class InvalidStateTransitionException extends IitsmException {
 
     private final IncidentStatus fromState;
     private final String attemptedAction;
+    // OOP (Immutability): the constructor stores Set.copyOf, so the exception cannot be changed later.
     private final Set<String> allowedActions;
 
     public InvalidStateTransitionException(

@@ -1,0 +1,19 @@
+# Classification benchmark examples (Phase A of the remaining-defects plan, 2026-11-05).
+# expected = the category the ticket should get, or TRIAGE when it is not an IT incident or too vague to route.
+# CATEGORY|TRIAGE accepts that category or any ticket that ends in triage (a mixed-signal ticket a human should look at).
+# A01-A05 use the titles observed in the 2026-10-31 stress audit (finding H9); their descriptions were written for this file.
+# A06-A12 are control tickets written for this file: real IT faults that use the generic lexicon words
+# (locked, connection, power, port, service, order), so a lexicon clean-up that breaks them shows up here.
+id	expected	title	description	source
+A01	SECURITY|TRIAGE	Phishing email opened Excel macro	I opened an attachment from an unknown sender and enabled the Excel macro it asked for. Now Outlook shows odd sent items.	audit H9
+A02	TRIAGE	Desk drawer locked, lost the pin	The drawer of my office desk is locked and I lost the PIN for the key pad.	audit H9
+A03	TRIAGE	Parking garage service door stuck	The service door in the parking garage does not open when I badge in.	audit H9
+A04	TRIAGE	Coffee machine power switch broken	The power switch of the coffee machine on floor 2 is broken.	audit H9
+A05	NETWORK	vpn vpn vpn	vpn	audit H9 (repeated keyword)
+A06	NETWORK	DNS lookups failing for internal hosts	Internal hostnames do not resolve and nslookup times out against the corporate DNS servers.	audit H9 (DNS ticket routed to the Service Desk)
+A07	TRIAGE	Strange behaviour today	Something is not working right since this morning.	control (vague)
+A08	AUTHENTICATION	Account locked after password reset	After the password reset this morning my account is locked and the login page rejects my credentials.	control (generic word: locked)
+A09	DATABASE	Database connection pool exhausted	The orders service logs HikariCP timeouts; all connections in the database pool are in use.	control (generic word: connection)
+A10	HARDWARE	Laptop power adapter not charging	The laptop does not charge from its power adapter; the battery stays at 3 percent.	control (generic word: power)
+A11	HARDWARE	Docking station HDMI port dead	Monitors stay black when connected to the HDMI port of the docking station.	control (generic word: port)
+A12	APPLICATION	Checkout fails when placing an order on the web portal	Customers get an error page at checkout when they submit an order on the website.	control (generic words: order, service)

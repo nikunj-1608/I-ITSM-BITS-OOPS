@@ -3,6 +3,7 @@ package com.iitsm.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,7 +48,7 @@ class SlaServiceTest {
         now = Instant.parse("2026-10-26T12:00:00Z");
         clock = Clock.fixed(now, ZoneOffset.UTC);
 
-        slaService = new SlaService(incidentRepository, eventPublisher, escalationService, clock);
+        slaService = new SlaService(incidentRepository, eventPublisher, escalationService, clock, org.springframework.transaction.support.TransactionOperations.withoutTransaction());
     }
 
     private Incident createIncident(Priority priority, Duration age) {
@@ -106,6 +107,22 @@ class SlaServiceTest {
 
         assertThat(incident.getSlaTracker().isPaused()).isTrue();
         assertThat(result.currentStatus()).isEqualTo(SlaStatus.ON_TRACK);
+    }
+
+    @Test
+    @DisplayName("H4: paused ticket past its old deadline publishes no SlaViolated and no SlaWarning")
+    void pausedTicketPastOldDeadlinePublishesNoAlert() {
+        // created 40m ago (P1 resolution 30m), clock paused 10m after creation, still waiting for the employee
+        Incident incident = createIncident(Priority.P1, Duration.ofMinutes(40));
+        incident.getSlaTracker().pauseClock(now.minus(Duration.ofMinutes(30)));
+        when(incidentRepository.findById("INC-1")).thenReturn(Optional.of(incident));
+
+        SlaEvaluationResult result = slaService.evaluateIncident("INC-1");
+
+        assertThat(result.currentStatus()).isNotEqualTo(SlaStatus.BREACHED);
+        assertThat(result.statusChanged()).isFalse();
+        assertThat(result.riskScore()).isLessThan(1.0);
+        verify(eventPublisher, never()).publish(any());
     }
 }
 

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+// OOP (Observer pattern): AuditTrailObserver is a subscriber; the publisher does not know what it does with an event.
 /**
  * Pattern: Observer.
  * Synchronous domain event listener persisting immutable audit records in the same database transaction.
@@ -27,6 +28,7 @@ public class AuditTrailObserver implements DomainEventListener {
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository cannot be null");
     }
 
+    // OOP (Method overriding): called by the publisher for every DomainEvent through the listener interface.
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void onEvent(DomainEvent event) {

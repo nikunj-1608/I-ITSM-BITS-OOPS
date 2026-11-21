@@ -3,6 +3,7 @@ package com.iitsm.web.dto;
 import java.util.List;
 import java.util.Map;
 
+// OOP (Immutability): ServiceAnalysisReportDto is a record, so it is a read-only data carrier with no setters.
 public record ServiceAnalysisReportDto(
         List<ServiceMetricItem> serviceMetrics,
         Map<String, Long> categoryDistribution) {

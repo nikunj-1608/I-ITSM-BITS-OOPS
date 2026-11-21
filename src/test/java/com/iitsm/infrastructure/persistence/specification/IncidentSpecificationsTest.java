@@ -6,9 +6,11 @@ import com.iitsm.domain.model.BusinessCriticality;
 import com.iitsm.domain.model.IncidentCategory;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
+import com.iitsm.domain.model.SlaStatus;
 import com.iitsm.domain.model.UserRole;
 import com.iitsm.infrastructure.persistence.entity.IncidentJpaEntity;
 import com.iitsm.infrastructure.persistence.entity.ItServiceJpaEntity;
+import com.iitsm.infrastructure.persistence.entity.SlaTrackerJpaEntity;
 import com.iitsm.infrastructure.persistence.entity.UserJpaEntity;
 import com.iitsm.infrastructure.persistence.repository.SpringDataIncidentRepository;
 import com.iitsm.infrastructure.persistence.repository.SpringDataItServiceRepository;
@@ -16,6 +18,7 @@ import com.iitsm.infrastructure.persistence.repository.SpringDataUserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -150,6 +153,15 @@ class IncidentSpecificationsTest {
     }
 
     @Test
+    @DisplayName("Filter by text search also matches the ticket id, ignoring case")
+    void testFilterByTextSearchMatchesTicketId() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.containsText("inc-test-2")))
+                .extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-2");
+        assertThat(incidentRepository.findAll(IncidentSpecifications.containsText("INC-TEST-")))
+                .hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
     @DisplayName("Composite specification combines >= 5 criteria effectively")
     void testCompositeSpecification() {
         Specification<IncidentJpaEntity> composite = Specification.where(IncidentSpecifications.hasStatus(IncidentStatus.IN_PROGRESS))
@@ -162,6 +174,119 @@ class IncidentSpecificationsTest {
         List<IncidentJpaEntity> results = incidentRepository.findAll(composite);
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getId()).isEqualTo("INC-TEST-1");
+    }
+
+    @Test
+    @DisplayName("Filter by several priorities matches any of them")
+    void testFilterByPriorityIn() {
+        Specification<IncidentJpaEntity> spec = IncidentSpecifications.hasPriorityIn(Set.of(Priority.P1, Priority.P4));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-2", "INC-TEST-3");
+    }
+
+    @Test
+    @DisplayName("Filter by several categories matches any of them")
+    void testFilterByCategoryIn() {
+        Specification<IncidentJpaEntity> spec =
+                IncidentSpecifications.hasCategoryIn(Set.of(IncidentCategory.HARDWARE, IncidentCategory.NETWORK));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-1", "INC-TEST-3");
+    }
+
+    @Test
+    @DisplayName("A null or empty priority/category set applies no filter")
+    void testMultiValueFiltersIgnoreNullAndEmpty() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasPriorityIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasPriorityIn(Set.of()))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasCategoryIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasCategoryIn(Set.of()))).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("Multi-value priority and category filters combine with AND between the two filters")
+    void testMultiValueFiltersCombine() {
+        Specification<IncidentJpaEntity> spec = Specification
+                .where(IncidentSpecifications.hasPriorityIn(Set.of(Priority.P1, Priority.P2)))
+                .and(IncidentSpecifications.hasCategoryIn(Set.of(IncidentCategory.NETWORK, IncidentCategory.HARDWARE)));
+        List<IncidentJpaEntity> results = incidentRepository.findAll(spec);
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-1");
+    }
+
+    @Test
+    @DisplayName("Filter by one status in a set matches that status only")
+    void testFilterByStatusInSingle() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasStatusIn(Set.of(IncidentStatus.NEW))))
+                .extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-2");
+    }
+
+    @Test
+    @DisplayName("Filter by several statuses matches any of them")
+    void testFilterByStatusInMany() {
+        Specification<IncidentJpaEntity> spec =
+                IncidentSpecifications.hasStatusIn(Set.of(IncidentStatus.IN_PROGRESS, IncidentStatus.CLOSED));
+        assertThat(incidentRepository.findAll(spec))
+                .extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-1", "INC-TEST-3");
+    }
+
+    @Test
+    @DisplayName("A null or empty status set applies no filter")
+    void testStatusInIgnoresNullAndEmpty() {
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasStatusIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasStatusIn(Set.of()))).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("Filter by SLA status matches the stored tracker status, any of the given values")
+    void testFilterBySlaStatusIn() {
+        attachTracker("INC-TEST-1", SlaStatus.BREACHED);
+        attachTracker("INC-TEST-2", SlaStatus.ON_TRACK);
+
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasSlaStatusIn(Set.of(SlaStatus.BREACHED))))
+                .extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-1");
+        assertThat(incidentRepository.findAll(
+                        IncidentSpecifications.hasSlaStatusIn(Set.of(SlaStatus.BREACHED, SlaStatus.ON_TRACK))))
+                .extracting(IncidentJpaEntity::getId).containsExactlyInAnyOrder("INC-TEST-1", "INC-TEST-2");
+    }
+
+    @Test
+    @DisplayName("A ticket without an SLA tracker never matches a non-empty SLA filter")
+    void testSlaStatusInExcludesTicketWithoutTracker() {
+        attachTracker("INC-TEST-1", SlaStatus.MET);
+
+        List<IncidentJpaEntity> results = incidentRepository.findAll(
+                IncidentSpecifications.hasSlaStatusIn(Set.of(SlaStatus.values())));
+        assertThat(results).extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-1");
+    }
+
+    @Test
+    @DisplayName("A null or empty SLA status set applies no filter, tickets without a tracker included")
+    void testSlaStatusInIgnoresNullAndEmpty() {
+        attachTracker("INC-TEST-1", SlaStatus.BREACHED);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasSlaStatusIn(null))).hasSize(3);
+        assertThat(incidentRepository.findAll(IncidentSpecifications.hasSlaStatusIn(Set.of()))).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("SLA and status filters combine with AND and return each ticket once")
+    void testSlaAndStatusFiltersCombine() {
+        attachTracker("INC-TEST-1", SlaStatus.BREACHED);
+        attachTracker("INC-TEST-2", SlaStatus.BREACHED);
+        Specification<IncidentJpaEntity> spec = Specification
+                .where(IncidentSpecifications.hasStatusIn(Set.of(IncidentStatus.IN_PROGRESS, IncidentStatus.CLOSED)))
+                .and(IncidentSpecifications.hasSlaStatusIn(Set.of(SlaStatus.BREACHED)));
+        assertThat(incidentRepository.findAll(spec))
+                .extracting(IncidentJpaEntity::getId).containsExactly("INC-TEST-1");
+    }
+
+    private void attachTracker(String incidentId, SlaStatus status) {
+        IncidentJpaEntity incident = incidentRepository.findById(incidentId).orElseThrow();
+        SlaTrackerJpaEntity tracker = new SlaTrackerJpaEntity();
+        tracker.setCreatedAt(incident.getCreatedAt());
+        tracker.setResponseDueAt(incident.getCreatedAt().plus(1, ChronoUnit.HOURS));
+        tracker.setResolutionDueAt(incident.getCreatedAt().plus(8, ChronoUnit.HOURS));
+        tracker.setStatus(status);
+        incident.setSlaTracker(tracker);
+        incidentRepository.saveAndFlush(incident);
     }
 
     private void createUser(String id, String email, UserRole role) {

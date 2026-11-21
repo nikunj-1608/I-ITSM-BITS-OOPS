@@ -7,6 +7,7 @@ import com.iitsm.domain.model.User;
 import java.time.Duration;
 import java.time.Instant;
 
+// OOP (Open/Closed + Polymorphism): AgingFactor is one PriorityFactor; a new factor is a new class, the calculator is not edited.
 /**
  * Pattern: Strategy.
  * Factor evaluating ticket aging and duration unaddressed (weight: 0.10).
@@ -16,6 +17,7 @@ public class AgingFactor implements PriorityFactor {
     public static final String FACTOR_NAME = "Aging";
     public static final double WEIGHT = 0.10;
 
+    // OOP (Method overriding): implements the factor contract declared by PriorityFactor.
     @Override
     public FactorContribution evaluate(Incident incident, User reporter, ItService service, IncidentEvaluationContext context) {
         Instant evaluationTime = (context != null && context.evaluationTime() != null)

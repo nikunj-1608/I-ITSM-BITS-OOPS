@@ -55,15 +55,104 @@ iitsm:
     override-recipient: ${REAL_EMAIL_OVERRIDE:}
   classification:
     min-confidence: ${MIN_CONFIDENCE:0.60}
+  # ADR-016: a new ticket is linked as a duplicate only when similarity reaches the threshold AND both tickets
+  # share at least min-shared-terms domain terms (0 disables the content guard).
+  # ADR-017: notifications are delivered after commit by one worker thread; events wait in a bounded queue.
+  # ADR-018: ticket intake runs one report at a time per application instance; a report that cannot get its turn
+  # within gate-timeout-ms is answered with 503 "busy". serialized: false switches the gate off.
+  intake:
+    serialized: ${INTAKE_SERIALIZED:true}
+    gate-timeout-ms: ${INTAKE_GATE_TIMEOUT_MS:30000}
+  events:
+    delivery-queue-capacity: ${EVENT_DELIVERY_QUEUE_CAPACITY:10000}
+    # ADR-038: the publisher keeps the newest events in memory as a verification aid; zero keeps none (prod)
+    history-limit: ${EVENT_HISTORY_LIMIT:1000}
+  # ADR-026: log one line at start-up saying whether technician slots match the open tickets.
+  capacity:
+    startup-check: ${CAPACITY_STARTUP_CHECK:true}
+  # ADR-026: the dispatcher assigns tickets that waited for technician capacity, each ticket in its own transaction.
+  # ADR-044: how many ranked candidates an assignment decision stores (the chosen technician is always rank 1).
+  assignment:
+    explanation-max-candidates: ${ASSIGNMENT_EXPLANATION_MAX_CANDIDATES:10}
+    # ADR-044 Phase L4: weight of "past experience with this IT service" in WEIGHTED_COMPOSITE (0.10 chosen with the offline
+    # simulation, see docs/assignment-explainability-summary.md; 0 = off, at most 0.5; the three
+    # historic weights are scaled by 1 - w); full score at this many resolved tickets of the service.
+    service-experience-weight: ${ASSIGNMENT_SERVICE_EXPERIENCE_WEIGHT:0.10}
+    service-experience-full-score-tickets: ${ASSIGNMENT_SERVICE_EXPERIENCE_FULL_SCORE_TICKETS:5}
+  dispatcher:
+    interval-ms: ${DISPATCHER_INTERVAL_MS:30000}
+    initial-delay-ms: ${DISPATCHER_INITIAL_DELAY_MS:10000}
+  duplicates:
+    similarity-threshold: ${DUPLICATE_SIMILARITY_THRESHOLD:0.30}
+    min-shared-terms: ${DUPLICATE_MIN_SHARED_TERMS:1}
+    recency-window-hours: ${DUPLICATE_RECENCY_WINDOW_HOURS:72}
+  # ADR-040: suggested resolutions. At most max-results past fixes with similarity >= min-similarity that share at
+  # least min-shared-terms domain terms with the ticket; only the newest candidate-window resolved tickets of the
+  # ticket's category (same-category-only) are compared, which bounds the cost of one request.
+  suggestions:
+    max-results: ${SUGGESTION_MAX_RESULTS:3}
+    min-similarity: ${SUGGESTION_MIN_SIMILARITY:0.20}
+    min-shared-terms: ${SUGGESTION_MIN_SHARED_TERMS:1}
+    same-category-only: ${SUGGESTION_SAME_CATEGORY_ONLY:true}
+    candidate-window: ${SUGGESTION_CANDIDATE_WINDOW:200}
+    explanation-terms: ${SUGGESTION_EXPLANATION_TERMS:5}
+    # ADR-041: score = similarity x vote factor, factor = 1 - w + 2w x (worked+1)/(worked+didnt+2), strictly inside
+    # (1 - w, 1 + w); 0 switches votes off. The minimum above applies to the similarity alone.
+    vote-weight: ${SUGGESTION_VOTE_WEIGHT:0.20}
+    # ADR-042: newest knowledge-base articles of the category compared per request (kept apart from the ticket window,
+    # so a promoted fix stays suggestable after its ticket has left candidate-window).
+    article-window: ${SUGGESTION_ARTICLE_WINDOW:200}
   demo-mode: ${DEMO_MODE:true}
   security:
     jwt:
       secret: ${JWT_SECRET:local-dev-and-demo-fallback-secret-key-at-least-32-bytes!}
-      expiration-ms: ${JWT_EXPIRATION_MS:7200000} # 120 minutes for uninterrupted evaluations and live demo recordings
+      # ADR-047: 15 minutes in every profile; the web app renews the session silently with the refresh token
+      expiration-ms: ${JWT_EXPIRATION_MS:900000}
+    # ADR-047: a session's refresh token lives this long from sign-in (absolute, not renewed by use); signing in again
+    # beyond max-sessions-per-user live sessions ends the user's oldest one; expired tokens are deleted after
+    # purge-after-days (kept a while so that a replay of an old token is still recognised).
+    # ADR-048: optional TOTP two-step verification for administrators. The authenticator secret is stored encrypted with
+    # this key (Base64 of exactly 32 random bytes). The default below is a committed development key, like the JWT
+    # secret: prod has none and refuses to start without MFA_ENCRYPTION_KEY.
+    mfa:
+      encryption-key: ${MFA_ENCRYPTION_KEY:nUwStk+Vj9p5Wto6IH1nnoAAxA95omigquRJPx37tn8=}
+      issuer: "Nimbus FinServe Swiftdesk"
+      challenge-minutes: 5
+      window-steps: 1
+      recovery-code-count: 8
+    refresh:
+      ttl-hours: ${REFRESH_TTL_HOURS:8}
+      max-sessions-per-user: ${MAX_SESSIONS_PER_USER:10}
+      cleanup-interval-ms: ${REFRESH_CLEANUP_INTERVAL_MS:3600000}
+      purge-after-days: 7
     max-failed-logins: 5
+    # ADR-033: five failed logins lock an account; the lock ends by itself after this many minutes (an administrator can
+    # unlock earlier). Self-registration is limited to these e-mail domains, comma separated; empty means any domain
+    # (dev and test), prod and demo default to the company domain.
+    lockout-minutes: ${LOCKOUT_MINUTES:15}
+    allowed-email-domains: ${ALLOWED_EMAIL_DOMAINS:}
+    # ADR-046: per-address token buckets on POST to the sign-in endpoints (capacity attempts at once, refilled
+    # continuously over the window). Off in dev and demo (the persona switcher and the 30-login live check would trip
+    # it), on in prod; RATE_LIMIT_ENABLED switches it in any profile. trusted-proxy-hops = number of reverse proxies
+    # in front of the application that append to X-Forwarded-For; 0 ignores that header (a client can forge it).
+    rate-limit:
+      enabled: ${RATE_LIMIT_ENABLED:false}
+      trusted-proxy-hops: ${RATE_LIMIT_TRUSTED_PROXY_HOPS:0}
+      max-tracked-clients: 10000
+      login-capacity: 10
+      login-window-seconds: 60
+      register-capacity: 5
+      register-window-seconds: 600
+      refresh-capacity: 60
+      refresh-window-seconds: 60
+      mfa-capacity: 10
+      mfa-window-seconds: 60
   simulation:
     seed: 42
     auto-seed: true
+  # Feature flag: when true the technician queue includes RESOLVED and CLOSED tickets
+  # so that solved tickets remain visible instead of disappearing after resolution.
+  show-solved-tickets: ${SHOW_SOLVED_TICKETS:true}
 
 ---
 spring:
@@ -73,9 +162,6 @@ spring:
 
 iitsm:
   demo-mode: true
-  security:
-    jwt:
-      expiration-ms: ${JWT_EXPIRATION_MS:7200000} # 120 minutes for dev exploration
 
 ---
 spring:
@@ -96,12 +182,26 @@ spring:
   flyway:
     enabled: true
 
+# ADR-033: the API documentation is not served in production
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 iitsm:
   demo-mode: false
+  events:
+    history-limit: ${EVENT_HISTORY_LIMIT:0}
   security:
+    allowed-email-domains: ${ALLOWED_EMAIL_DOMAINS:nimbusfinserve.com}
     jwt:
       secret: ${JWT_SECRET:}
       expiration-ms: ${JWT_EXPIRATION_MS:900000}
+    rate-limit:
+      enabled: ${RATE_LIMIT_ENABLED:true}
+    mfa:
+      encryption-key: ${MFA_ENCRYPTION_KEY:}
   simulation:
     auto-seed: false
 
@@ -127,8 +227,8 @@ spring:
 iitsm:
   demo-mode: true
   security:
+    allowed-email-domains: ${ALLOWED_EMAIL_DOMAINS:nimbusfinserve.com}
     jwt:
       secret: ${JWT_SECRET:nimbus-finserve-iitsm-demo-super-secret-key-2026-production-grade}
-      expiration-ms: ${JWT_EXPIRATION_MS:7200000} # 120 minutes
   simulation:
     auto-seed: true

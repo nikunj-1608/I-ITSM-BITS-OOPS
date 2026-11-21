@@ -7,18 +7,21 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+// OOP (Inheritance): Technician extends User; TeamLead then extends Technician, giving a three-level hierarchy.
 /**
  * OOP: Concrete user subclass representing an IT support technician.
  * Encapsulates skills, capacity constraints, availability, and active assignments.
  */
 public class Technician extends User {
 
+    // OOP (Aggregation / Association): a Technician has many Skill value objects; a Set removes duplicates.
     private final Set<Skill> skills;
     private final int experienceYears;
     private final int maxCapacity;
     private AvailabilityStatus availabilityStatus;
     private String supportTeamId;
     // Set of active incident IDs assigned to this technician
+    // OOP (Encapsulation): the collection is private and only changed by assignIncident/releaseIncident, which enforce the capacity rule.
     private final Set<String> activeIncidentIds;
 
     public Technician(
@@ -33,6 +36,7 @@ public class Technician extends User {
         this(id, name, email, passwordHash, UserRole.ROLE_TECHNICIAN, skills, experienceYears, maxCapacity, supportTeamId);
     }
 
+    // OOP (Constructor overloading): a second constructor, protected so TeamLead can reuse it via super(...).
     protected Technician(
             String id,
             String name,
@@ -58,6 +62,7 @@ public class Technician extends User {
         this.activeIncidentIds = new HashSet<>();
     }
 
+    // OOP (Encapsulation): returns an unmodifiable view so the caller cannot change the internal set.
     public Set<Skill> getSkills() {
         return Collections.unmodifiableSet(skills);
     }
@@ -98,6 +103,7 @@ public class Technician extends User {
         return availabilityStatus != AvailabilityStatus.OFFLINE && hasCapacity();
     }
 
+    // OOP (Tell, Don't Ask): callers tell the technician to take a ticket; the capacity invariant is checked here, inside the object.
     public void assignIncident(String incidentId) {
         Objects.requireNonNull(incidentId, "incidentId cannot be null");
         if (activeIncidentIds.size() >= maxCapacity) {
@@ -157,6 +163,7 @@ public class Technician extends User {
         return false;
     }
 
+    // OOP (Polymorphism): each User subclass answers this question in its own way, so callers need no instanceof checks.
     @Override
     public boolean canExecuteAction(Incident incident, IncidentAction action, String owningTeamId) {
         if (incident == null || action == null) return false;
@@ -173,6 +180,12 @@ public class Technician extends User {
                 || action == IncidentAction.RESOLVE
                 || action == IncidentAction.FLAG_WRONG_DOMAIN
                 || action == IncidentAction.REASSIGN;
+    }
+
+    /** A technician may promote a fix they resolved themselves (ADR-042). */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null && getId().equals(resolution.resolvedBy());
     }
 }
 

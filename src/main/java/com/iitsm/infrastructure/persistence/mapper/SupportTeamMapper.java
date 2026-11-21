@@ -4,6 +4,7 @@ import com.iitsm.domain.model.SupportTeam;
 import com.iitsm.infrastructure.persistence.entity.SupportTeamJpaEntity;
 import java.util.HashSet;
 
+// OOP (Single responsibility): SupportTeamMapper only converts between domain objects and entities; it holds no business rule.
 public final class SupportTeamMapper {
 
     private SupportTeamMapper() {}

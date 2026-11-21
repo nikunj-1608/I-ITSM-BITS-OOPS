@@ -2,11 +2,13 @@ package com.iitsm.domain.model;
 
 import java.util.Objects;
 
+// OOP (Inheritance): sibling of Employee and Technician under the same abstract parent.
 /**
  * OOP: Administrative persona with system-wide oversight, assignment override, and operational control.
  */
 public class Administrator extends User {
 
+    // OOP (Composition with an enum): the administrator's level is a type-safe constant, not a free String.
     private final AdminLevel adminLevel;
 
     public Administrator(
@@ -31,6 +33,13 @@ public class Administrator extends User {
         return adminLevel == AdminLevel.IT_MANAGER;
     }
 
+    /** Administrators may protect their sign-in with a second step (ADR-048). */
+    @Override
+    public boolean canEnrollMfa() {
+        return true;
+    }
+
+    // OOP (Polymorphism): the administrator can view every incident; this is the whole rule, no role string is compared.
     @Override
     public boolean canViewIncident(Incident incident, String owningTeamId) {
         return true; // Global administrative visibility
@@ -39,6 +48,12 @@ public class Administrator extends User {
     @Override
     public boolean canExecuteAction(Incident incident, IncidentAction action, String owningTeamId) {
         return true; // Global administrative operational authority
+    }
+
+    /** An administrator may promote any resolution (ADR-042). */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null;
     }
 }
 

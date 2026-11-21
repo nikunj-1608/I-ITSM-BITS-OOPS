@@ -1,0 +1,29 @@
+# Everyday validation tickets (ADR-052, written 2026-11-21 before the Naive Bayes corpus of Phase 4 was changed).
+# Same format and labels as everyday_tickets.tsv. These tickets were never used to choose a lexicon word, a rule or a
+# corpus row: they check that the fix generalises beyond the tickets it was tuned on. They are reported, and the
+# benchmark only asserts that the fix does not make them worse than the original code.
+id	expected	title	description	source
+V01	HARDWARE	Headset microphone not working	People cannot hear me on calls, my headset microphone seems dead.	control
+V02	HARDWARE	Scanner on second floor broken	The scanner near the lift does not send my scans anywhere.	control
+V03	HARDWARE	Phone screen cracked	The screen of my company phone is cracked after a fall.	control
+V04	HARDWARE	Laptop fan very loud	The fan of my laptop is very loud and the laptop gets hot.	control
+V05	NETWORK	Wi-Fi keeps disconnecting	My laptop drops off the wifi every ten minutes.	control
+V06	NETWORK	Very slow internet	Web pages take forever to load on the office network today.	control
+V07	NETWORK	VPN will not connect	The VPN client says the connection failed when I try from home.	control
+V08	SOFTWARE	Word document will not open	Microsoft Word shows an error when I open a document.	control
+V09	SOFTWARE	Calendar invites not showing	Meeting invites do not appear in my Outlook calendar.	control
+V10	SOFTWARE	PDF reader keeps freezing	Adobe Acrobat freezes every time I open a PDF.	control
+V11	AUTHENTICATION	Password expired	My password expired and I cannot change it.	control
+V12	AUTHENTICATION	Locked out of my account	I typed my password wrong too many times and now my account is locked.	control
+V13	SECURITY	Strange pop-ups on my laptop	My browser keeps opening strange pop-up ads, I think I have a virus.	control
+V14	SECURITY|TRIAGE	Lost my work laptop	I left my work laptop on the train this morning.	control
+V15	DATABASE	Database is down	The customer database cannot be reached by our reporting tool.	control
+V16	STORAGE	Shared folder full	The team shared drive says there is no space left.	control
+V17	STORAGE	Cannot open files on the network drive	Files on the network drive give an access error since this morning.	control
+V18	CLOUD	Cloud server stopped responding	Our test server in AWS stopped responding an hour ago.	control
+V19	APPLICATION	Expense claim portal error	The expenses portal shows an error when I submit my claim.	control
+V20	APPLICATION	CRM very slow	Salesforce takes a minute to load each customer record.	control
+V21	TRIAGE	Lights flickering in the office	The ceiling lights in room 5 are flickering.	control (not IT)
+V22	TRIAGE	Need a new desk	Could I get a bigger desk for my workplace?	control (not IT)
+V23	TRIAGE	Problem	I have a problem, please call me.	control (vague)
+V24	TRIAGE	Coffee machine broken	The coffee machine in the kitchen is broken again.	control (not IT)

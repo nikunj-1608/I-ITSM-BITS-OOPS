@@ -3,6 +3,7 @@ package com.iitsm.web.dto;
 import com.iitsm.domain.model.ReassignmentRequest;
 import java.time.Instant;
 
+// OOP (Immutability): ReassignmentRequestDto is a record, so it is a read-only data carrier with no setters.
 /**
  * DTO representing an out-of-scope / wrong-domain reassignment request.
  */
