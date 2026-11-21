@@ -1,148 +1,187 @@
-﻿# Intelligent IT Service Management (I-ITSM)
+<p align="center">
+  <img src="logo-concepts/Swiftdesk.jpg" alt="Swiftdesk: IT Service Management" width="420">
+</p>
 
-[![Java 21](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Tests](https://img.shields.io/badge/Tests-205%20Passed%20(100%25)-success.svg)]()
-[![JaCoCo Coverage](https://img.shields.io/badge/Line%20Coverage-87.4%25-brightgreen.svg)]()
-[![Pure Java Domain](https://img.shields.io/badge/Domain%20Core-Zero%20Spring%20Imports-purple.svg)]()
-[![Architecture](https://img.shields.io/badge/Architecture-Hexagonal%20Ports%20%26%20Adapters-informational.svg)]()
-[![UI/UX](https://img.shields.io/badge/UI%2FUX-Light%20Mode%20Minimalist-orange.svg)]()
+# Swiftdesk
 
-> A production-grade, enterprise IT Service Management platform built for **CS F213 (Object-Oriented Programming)**. Engineered around a 100% pure-Java domain core, 8 object-oriented design patterns, an explainable pure-Java NLP & multi-factor priority scoring engine, a multi-tier Chain of Responsibility escalation hierarchy, an accelerated virtual simulation engine (`AdjustableClock`), and a role-isolated single-page enterprise web console.
+Swiftdesk is an IT help desk that thinks for itself. Employees report a problem in plain English; the system works out what kind of problem it is, decides how urgent it is (and shows its reasoning), picks the right technician, watches the clock, and escalates if things slip.
 
----
+Built as a course project for **CS F213 (Object-Oriented Programming)**, set in a made-up fintech company, **Nimbus FinServe Inc.**
 
-## 1. Key System Architecture & OOP Highlights
-
-1. **Pure Java Hexagonal Domain Core**:
-   - `com.iitsm.domain.*` has **zero imports** from Spring Framework (`org.springframework.*`), Jakarta (`jakarta.*`), or persistence libraries.
-   - Enforced continuously via ArchUnit architectural test rules in `ArchitectureRegressionTest`.
-   - Domain aggregate roots enforce behavioral encapsulation (no public setters; rich behavior methods; Tell-Don't-Ask).
-2. **8 Viva-Defensible Object-Oriented Design Patterns**:
-   - **State Pattern**: 9-state finite state machine with zero-allocation `EnumMap` flyweight singletons (`NewState`, `ClassifiedState`, `AssignedState`, `AcknowledgedState`, `InProgressState`, `PendingInfoState`, `ResolvedState`, `VerifiedState`, `ClosedState`).
-   - **Strategy Pattern**: Dynamic technician routing (5 hot-swappable strategies: `RoundRobinAssignmentStrategy`, `WorkloadAwareAssignmentStrategy`, `SkillMatchingAssignmentStrategy`, `CompositeAssignmentStrategy`, `AvailabilityAwareAssignmentStrategy`), 6-factor priority scoring, NLP classifiers, and text similarity measures.
-   - **Chain of Responsibility**: 4-tier progressive escalation hierarchy (Technician $\rightarrow$ Team Lead $\rightarrow$ System Admin $\rightarrow$ IT Operations Manager).
-   - **Decorator Pattern**: `AdjustableClock` decorating `java.time.Clock` with speed multipliers ($\times 1, \times 60, \times 600$) and discrete fast-forwards (+15m, +1h, +24h).
-   - **Observer Pattern**: Sealed `DomainEvent` spine decoupling transactional audit logging and multi-channel notifications.
-   - **Composite Pattern**: `CompositeClassifier` and `CompositePriorityCalculator` pairing statistical Naive Bayes with rule-based heuristics.
-   - **Factory Pattern**: `UserFactory` and `IncidentFactory` ensuring invariant enforcement and polymorphic creation.
-   - **Repository Pattern (Ports & Adapters)**: Pure domain repository interfaces decoupled from Spring Data JPA adapters.
-3. **Pure-Java Algorithmic Intelligence (Zero External Heavy ML)**:
-   - Built-in `TextNormalizer`, `TfIdfVectorizer`, `KeywordClassifier`, and `NaiveBayesClassifier` trained on a 630-sample ITIL corpus (`corpus.csv`), achieving **$86.1\%$ accuracy** on unseen enterprise test incidents.
-   - Sliding-window Cosine TF-IDF similarity correlation linking duplicate storm incidents to root cluster parents.
-4. **Time-Accelerated Simulation Engine (`AdjustableClock`)**:
-   - Zero `Thread.sleep()` calls; runs hours of SLA degradation and multi-tier escalations in milliseconds.
-   - Pre-scripted canonical scenarios (S1ΓÇôS5) demonstrating the full lifecycle, P1 outages, wrong-domain triage loops, duplicate storms, and clock pauses.
-5. **Strict Role-Isolated Enterprise UI/UX**:
-   - Persona isolation: Employees see only their self-service portal; technicians see only their assigned workload; administrators see command centre and unified triage.
-   - Priority ranks (P1ΓÇôP4), SLA targets/deadlines, and internal technician investigation notes are strictly hidden from employees at the DTO type level (`EmployeeIncidentView`).
-6. **Embedded Single-Page Web Console**:
-   - Modern, responsive SPA served directly by Spring Boot at `http://localhost:8085/` with zero Node.js/npm runtime prerequisites and full offline compatibility (zero external CDN scripts, compliant with strict CSP `script-src 'self'`).
+**Stack:** Java 21, Spring Boot 3.3, plain HTML/CSS/JavaScript front end (no Node.js needed).
 
 ---
 
-## 2. Simulated Enterprise: Nimbus FinServe Inc.
+## Contents
 
-### 2.1 Corporate Purpose & Infrastructure Overview
-**Nimbus FinServe Inc.** is an institutional financial technology and digital banking institution operating high-frequency algorithmic trade execution, core banking settlement ledgers, real-time risk modeling, and institutional wealth management portals.
+1. [Installation and Quick Start](#1-installation-and-quick-start)
+2. [What it does](#2-what-it-does)
+3. [Demo accounts](#3-demo-accounts)
+4. [A guided walkthrough](#4-a-guided-walkthrough)
+5. [Email and notifications ](#5-email-and-notifications)
+6. [Running with a real database](#6-running-with-a-real-database)
+7. [Tests](#7-tests)
+8. [Built-in demo scenarios](#8-built-in-demo-scenarios)
+9. [How the code is organised](#9-how-the-code-is-organised)
+10. [Intelligent Features](#10-intelligent-features)
+11. [Course concepts](#11-course-concepts)
+12. [Documentation](#12-documentation)
 
-In financial services, minute-by-minute system downtime translates directly to financial transaction losses, liquidity risks, regulatory fines (SEC, FINRA, RBI), and institutional reputation damage. Therefore, **incident priority is mathematically calculated based on the business criticality of the affected IT infrastructure**, combined with reporter designation hierarchy, service outage heuristics, and duplicate storm clustering.
+---
 
-### 2.2 Corporate Hierarchy & Specialist Teams
-```
-                            Victoria Sterling
-                        (Chief Executive Officer)
-                                   Γöé
-                            Alexander Vance
-                    (Chief IT Infrastructure Admin)
-                                   Γöé
-      ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
-      Γöé                   Γöé                   Γöé                   Γöé
-Network Operations  Core Banking DB    Cybersecurity      Workplace & Floor
-   (TEAM-NET)          (TEAM-DB)          (TEAM-SEC)          (TEAM-DESK)
-      Γöé                   Γöé                   Γöé                   Γöé
-Lead: Sarah Jenkins  Michael Chang      Hannah Fischer      Amanda Brooks
-Tech: Elena Rostova  Priya Patel        Carlos Mendez       Jordan Bell
-      (VPN Specialist) (Lead DBA)       (SecOps Engineer)   (Floor Specialist)
-Tech: David Kim
-      (Firewalls/BGP)
+## 1. Installation and Quick Start
+
+**You need:** JDK 21. Nothing else (the Maven wrapper is included).
+
+```powershell
+# Windows
+.\mvnw.cmd spring-boot:run
 ```
 
-| Persona & Name | Corporate Role & Domain Specialization | Pre-seeded Email |
-| :--- | :--- | :--- |
-| **Victoria Sterling** | Chief Executive Officer (VP / C-Level Executive) | `ceo@nimbusfinserve.com` |
-| **Vikram Malhotra** | Senior Quantitative Trading Analyst (Staff Reporter) | `employee@nimbusfinserve.com` |
-| **Elena Rostova** | Senior Network Specialist (**VPN Gateways, WireGuard, DNS**) | `tech.net2@nimbusfinserve.com` |
-| **David Kim** | Senior Network Specialist (**Cisco BGP Routing, Perimeter Firewalls**) | `tech.network@nimbusfinserve.com` |
-| **Priya Patel** | Lead Database Administrator (**PostgreSQL Tuning, Oracle RAC Clusters**) | `tech.db1@nimbusfinserve.com` |
-| **Carlos Mendez** | Cybersecurity Engineer (**Active Directory, SAML SSO, MFA**) | `tech.sec1@nimbusfinserve.com` |
-| **Sarah Jenkins** | Network Support Team Lead (Escalation oversight & team queue) | `lead.network@nimbusfinserve.com` |
-| **Alexander Vance** | Chief IT Infrastructure Administrator (Unified triage & policy controls) | `admin@nimbusfinserve.com` |
+```bash
+# Linux / macOS
+./mvnw spring-boot:run
+```
 
-*Default password for all seeded accounts:* `Password123!`
+Then open **http://localhost:8085/**.
 
-### 2.3 IT Service Catalog & Infrastructure Criticality Tiers
+The app starts with an in-memory database and fills it with a demo company, so there is nothing to set up. Everything resets when you stop it.
 
-Ticket priority (P1ΓÇôP4) is derived dynamically from the IT service's criticality tier, reporter designation weight, and historical failure frequency:
+| Link | What it is |
+|---|---|
+| http://localhost:8085/ | The web app |
+| http://localhost:8085/swagger-ui.html | Interactive API docs |
+| http://localhost:8085/actuator/health | Health check |
 
-| Criticality Tier | Impact Level | IT Service & Key Description | Default Priority & SLA Target | Financial & Infrastructure Impact Rationale |
-| :---: | :---: | :--- | :---: | :--- |
-| **Tier 4** | **Mission Critical** | `SVC-PAYMENT` Payment Gateway<br>`SVC-CORE-DB` Core Banking DB<br>`SVC-SSO` SSO & Identity Provider | **P1 (Critical)**<br>ΓÇó Response: 15 min<br>ΓÇó Resolve: 1 hour | **Direct Financial Outage**: Halts credit card settlements and ledger transactions. Revenue loss: up to \$200,000/hr. Triggers instant SMS + Email escalation. |
-| **Tier 3** | **Business Operational** | `SVC-VPN` Corporate VPN Gateways<br>`SVC-CRM` Customer Support CRM<br>`SVC-EMAIL` Corporate Email & Calendar<br>`SVC-DWH` Data Warehouse Analytics | **P2 (High)**<br>ΓÇó Response: 30 min<br>ΓÇó Resolve: 4 hours | **Business Impairment**: Blocks remote trading desks and intraday risk/compliance pipelines. |
-| **Tier 2** | **Departmental** | `SVC-WIFI` Office HQ Wi-Fi<br>`SVC-CICD` CI/CD Engineering Pipeline<br>`SVC-HRMS` HR & Payroll Portal | **P3 (Moderate)**<br>ΓÇó Response: 1 hour<br>ΓÇó Resolve: 8 hours | **Operational Degradation**: Internal productivity degradation with manual operational workarounds. |
-| **Tier 1** | **Internal Support** | `SVC-PRINT` Office Printing<br>`SVC-HARDWARE` Laptop & Peripherals<br>`SVC-WIKI` Intranet Confluence Wiki<br>`SRV-GEN-001` General IT / Helpdesk | **P4 (Minor)**<br>ΓÇó Response: 4 hours<br>ΓÇó Resolve: 24 hours | **Routine Requests**: Localized peripheral issues without enterprise infrastructure risk. |
+> If Windows can't find Java, point `JAVA_HOME` at your JDK 21 first, for example
+> `$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"`
 
 ---
 
-## 3. Minimalist Light-Mode UI/UX Design System
+## 2. What it does
 
-The web console interface is designed in a minimalist, professional **Light Mode** inspired by enterprise fintech dashboards, using a 3-color functional accent palette:
+| Step | What happens |
+|---|---|
+| **Report** | An employee describes a problem in their own words. |
+| **Understand** | The system reads the text and guesses the category (network, database, security, ...). If it isn't confident, a human decides instead. |
+| **Prioritise** | A priority from P1 (critical) to P4 (minor) is calculated from several factors, and the breakdown is kept so it can be explained. |
+| **Assign** | The ticket goes to the right team and a technician with free capacity. Administrators can see why that technician was chosen. |
+| **Track** | Each ticket has an SLA clock (response and resolution deadlines). The clock pauses while waiting for the employee. |
+| **Escalate** | Late tickets move up: technician, then team lead, then admin, then IT manager. |
+| **Close** | The employee confirms the fix and rates it. |
 
-| Functional Color | Palette Hex | Application in Interface |
+### Protection and fairness
+
+- **Sign-in safety.** Five wrong passwords lock the account. The error never says whether the email or the password was wrong. Administrators can turn on two-step verification.
+- **Different people see different things.** Employees never see priority, SLA details or internal notes. This is enforced by the data the server sends, not just by hiding things on screen.
+- **Paused clock.** While the technician waits for the employee's answer, the SLA timer stops, so the technician isn't blamed.
+- **Humans stay in charge.** Unsure or wrong-team tickets go to an admin triage queue rather than being guessed.
+- **Everything is recorded.** Every step is written to an audit trail (time, user, action, old and new state) and sends notifications: bell icon (live), email and simulated SMS.
+- **A simulation clock** (+15m / +1h / +24h in the top bar) lets you fast-forward hours of SLA time in a click, so demos don't need waiting.
+
+### What each screen does
+
+| Tab | Who uses it | What you can do |
 |---|---|---|
-| **Primary Sky Blue** | `#0284C7` / `#72C3E8` | Navbar brand icon, primary buttons, active navigation tabs, workload capacity progress bars, specialist badges, focus outlines. |
-| **Warning Amber Yellow** | `#F4AF34` / `#F59E0B` | Human-in-the-loop triage queue banners, pending info notices, P2/P3 priority indicators, CEO persona pill. |
-| **Alert Crimson Red** | `#EA3F26` / `#DC2626` | P1 critical outage badges, SLA deadline breaches, destructive actions, error banners, Administrator persona pill. |
+| **Employee** | Anyone | **Report an Issue** (type it, or click a ready-made example). **My Active Tickets** with a progress bar: answer questions, then **Verify & Close** (1 to 5 stars) or **Reject fix**. **History** of closed tickets. |
+| **Technician** | Support staff | A workload meter (for example 3 / 7 tickets) and your queue. Buttons: Acknowledge, Start Investigation, Add Note, Request Info (pauses the timer), Resolve, Flag Out-of-Scope, Suggested fixes, Promote to knowledge base. |
+| **Team Lead** | Team leads | Each member's workload, tickets nobody has taken, and tickets close to their deadline. Assign or Reassign a ticket, or Inspect Escalation to jump to it. |
+| **Admin** | Administrators | **Incident Catalog**: filter every ticket by status, priority, category, service, technician, date or ID; click one for full details (SLA, priority breakdown, why this technician, notes, audit trail), then Override Priority, Reassign or Close. **Triage Queue**: fix the category and reassign, or reject a technician's flag. **Routing Strategies**: choose how technicians are picked; it changes immediately. |
+| **Simulation** | Administrators | Control the virtual clock, run scenarios S1 to S5 with a live log, compare assignment methods. |
+| **Reports** | Administrators | Average response and resolve time, SLA success rate, team workload, tickets per service, SLA results per priority, escalation history. |
 
-- **Light Canvas & Surfaces**: Clean `#F8FAFC` base with pure white (`#FFFFFF`) card surfaces and subtle borders (`#E2E8F0`).
-- **High-Contrast Typography**: Slate 900 (`#0F172A`) for high legibility, Slate 600 (`#475569`) for metadata, and monospace for IDs and timestamps.
-- **Zero External Dependencies**: Zero CDN links (`fonts.googleapis.com`, `cdnjs`, etc.). Fully offline-operable and compliant with strict Content Security Policy (`default-src 'self'`).
+### SLA targets
+
+Every ticket gets two timers when it is created: a **response** target (how soon a technician must accept it) and a **resolution** target (how soon it must be solved).
+
+| Priority | Typical services | Response within | Resolve within |
+|---|---|---|---|
+| **P1** Critical | Payment gateway, core banking database, single sign-on | 5 min | 30 min |
+| **P2** High | VPN, CRM, email, data warehouse | 15 min | 2 hours |
+| **P3** Medium | Office Wi-Fi, CI/CD pipeline, HR portal | 1 hour | 8 hours |
+| **P4** Low | Printing, laptops, wiki, general help | 4 hours | 24 hours |
+
+Status is based on how much of the resolution time is used: **On Track** (under 75%), **At Risk** (75%+, technician reminded), **Warning** (90%+, team lead alerted), **Breached** (missed, recorded and escalated) and **Met** (solved in time). Missing the response deadline counts as a breach even if the fix is on time. Admins can change the policies.
+
+### When something goes wrong
+
+| Situation | What the system does |
+|---|---|
+| Category confidence under 60% | Not auto-assigned; goes to the admin triage queue |
+| Ticket sent to the wrong team | Technician flags it; it returns to triage, the slot is freed, an admin reassigns |
+| Same problem reported again | Linked as a duplicate, no technician slot used |
+| Technician busy, away or full | Skipped. If nobody is free the ticket waits and is retried in the background |
+| Two people edit one ticket at once | First save wins; the second sees a "conflict, try again" message |
+| Illegal step (for example closing a new ticket) | Refused, the ticket stays as it was |
+| Wrong input or a forbidden action | Refused with a message naming the problem |
+| Email or SMS is down | Logged; other channels still deliver and the ticket is unaffected |
 
 ---
 
-## 4. Evaluation Demonstration Protocol (Role-Isolated Experience)
+## 3. Demo accounts
 
-To demonstrate the real-world operational separation of duties:
+Every demo account uses the password **`Password123!`**
 
-1. **Step 1: Employee Incident Intake**
-   - Open [http://localhost:8085/](http://localhost:8085/) and sign in as **Vikram Malhotra** (`employee@nimbusfinserve.com`) or **Victoria Sterling** (`ceo@nimbusfinserve.com`).
-   - Notice that **only** the Employee Self-Service Portal is visible in the top navigation.
-   - Click template **"≡ƒîÉ VPN Outage &rarr; Elena Rostova"** (or submit: *"VPN tunnel drops during institutional block trade"*).
-   - The NLP classifier identifies `NETWORK` category and routes to domain specialist **Elena Rostova** (VPN Gateways).
-   - An on-screen prompt displays the assigned domain specialist and provides a one-click button: **[Sign Out & Switch to Elena Rostova]**.
-2. **Step 2: Specialist Technical Handling**
-   - Sign in as **Elena Rostova** (`tech.net2@nimbusfinserve.com`).
-   - Notice that Elena sees **only** the Technician Console with her personal workload queue and capacity meter.
-   - Click **Acknowledge** (state moves to `ACKNOWLEDGED`, recording response SLA) &rarr; Click **Start Investigation** (moves to `IN_PROGRESS`) &rarr; Click **Add Note** (internal diagnostics) &rarr; Click **Resolve** and submit the structured resolution (*Root cause: Stale route table; Steps: Flushed routing daemon*).
-   - A walkthrough prompt confirms: *"Incident resolved! Next step: Sign out & sign in as Employee to verify."*
-   > **Technician view ΓÇô solved tickets stay visible:** After resolving a ticket the card remains in Elena's queue (marked with a **RESOLVED** status badge) instead of disappearing. This is controlled by `iitsm.show-solved-tickets=true` in `application.yml` (default `true`). Set it to `false` to revert to the legacy behaviour where only active tickets are shown.
-3. **Step 3: Verification & Formal Closure**
-   - Sign out and sign back in as **Vikram Malhotra** (`employee@nimbusfinserve.com`).
-   - The ticket stepper shows **RESOLVED**.
-   - Click **Verify & Close Ticket**, provide a 5-star rating, and the ticket formally transitions to `CLOSED`.
+| Role | Email |
+|---|---|
+| Employee | `employee@nimbusfinserve.com` |
+| Technician (Network) | `tech.network@nimbusfinserve.com` |
+| Team lead (Network) | `lead.network@nimbusfinserve.com` |
+| IT manager | `manager@nimbusfinserve.com` |
+| Administrator | `admin@nimbusfinserve.com` |
+
+The demo company has 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians. More technician logins follow the same pattern, such as `tech.net2@` and `tech.desk1@`.
 
 ---
 
-## 5. Email & Multi-Channel Notification System
+## 4. A guided walkthrough
 
-I-ITSM implements the Observer pattern via `DomainEvent` listeners. Outgoing notifications are dispatched across `EmailChannel`, `InAppChannel`, and `SmsSimulatorChannel`.
+Follow one ticket from start to finish by signing in as three different people. Sign out between steps.
 
-### Option A: Send Notifications to a REAL Personal/Work Email Address (Recommended)
-Since `@nimbusfinserve.com` is a simulated corporate domain, public SMTP servers (like Gmail) would bounce emails sent to fake domains. The platform provides a built-in `REAL_EMAIL_OVERRIDE` feature: every notification generated by the platform is safely delivered to your personal mailbox with the target simulated recipient indicated in the subject line!
+**1. As the employee** (`employee@nimbusfinserve.com`)
+- Notice you only see the Employee tab.
+- Report a problem, for example: *"VPN tunnel drops during institutional block trade"*.
+- The system files it under Network and assigns a technician.
 
-To route all platform emails to your real inbox using Gmail SMTP:
-1. In your Google Account, generate an **App Password** (Security &rarr; 2-Step Verification &rarr; App passwords).
-2. Set the environment variables in PowerShell and launch the app:
+**2. As the technician** (`tech.network@nimbusfinserve.com`)
+- Open the ticket and click **Acknowledge**, then **Start Investigation**.
+- Add a note, then **Resolve** with a root cause and the steps you took.
+
+**3. As the employee again**
+- The tracker now shows **Resolved**.
+- Click **Confirm Fixed** and leave a rating. The ticket closes.
+
+**4. As the administrator** (`admin@nimbusfinserve.com`)
+- Open the ticket in the Admin tab to see the priority breakdown, the audit trail, and why that technician was picked.
+
+---
+
+## 5. Email and notifications (optional)
+
+The app sends notifications three ways: an in-app bell, simulated SMS (printed in the console), and email.
+
+**You do not need to set any of this up.** With no mail server, the app keeps working: the bell and console messages still arrive, and the email attempt is logged as a warning and skipped.
+
+If you want to see the emails, pick one:
+
+<details>
+<summary><b>Local inbox with Mailpit (easiest, needs Docker)</b></summary>
+
+```bash
+docker compose up mailpit -d
+```
+
+Open http://localhost:8025/ to read every email the app sends. No accounts or passwords needed.
+</details>
+
+<details>
+<summary><b>Send to your own Gmail</b></summary>
+
+The demo addresses (`@nimbusfinserve.com`) aren't real, so Gmail would reject mail sent to them. The `REAL_EMAIL_OVERRIDE` setting sends every notification to *your* inbox instead, with the intended recipient shown in the subject line.
+
+1. In your Google Account, create an **App Password** (Security, then 2-Step Verification, then App passwords).
+2. Set these variables and start the app:
+
 ```powershell
 $env:SPRING_MAIL_HOST = "smtp.gmail.com"
 $env:SPRING_MAIL_PORT = "587"
@@ -152,122 +191,170 @@ $env:SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH = "true"
 $env:SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE = "true"
 $env:REAL_EMAIL_OVERRIDE = "your-email@gmail.com"
 
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
 .\mvnw.cmd spring-boot:run
 ```
-Whenever an incident is logged, assigned, acknowledged, escalated, or resolved, you will receive a real email in your Gmail inbox!
 
-### Option B: Local Mailpit (Docker or Standalone Binary)
-If Docker is installed:
-```powershell
-docker compose up mailpit -d
-```
-Open Mailpit Web UI at [http://localhost:8025/](http://localhost:8025/) to view all outgoing emails sent to `*@nimbusfinserve.com` with zero real email credentials required.
-
-### Option C: 100% Offline (In-App Notification Bell & SMS Simulator)
-If no mail server is running, the application **never fails or crashes**: the `NotificationRouter` isolates the channel failure with a warning, while simultaneously delivering notifications to:
-1. The **In-App Notification Bell** in the top navbar (click the bell to view live real-time notifications).
-2. The **SMS Simulator** logged to the application console (`[SMS-SIMULATOR] Sent SMS to EMP-0001: ...`).
+Now every logged, assigned, escalated or resolved ticket sends a real email to your inbox.
+</details>
 
 ---
 
-## 6. Quick Start & Local Execution
+## 6. Running with a real database
 
-### Prerequisites
-- **JDK 21** (Eclipse Temurin or Microsoft OpenJDK 21)
-- **Maven 3.9+** (or use included `./mvnw`)
+The default mode is in-memory. To use PostgreSQL and Mailpit through Docker:
 
-### One-Command Launch (In-Memory Development Mode)
-```powershell
-# Windows PowerShell:
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
-.\mvnw.cmd spring-boot:run
-```
-*(On Linux / macOS)*:
-```bash
-./mvnw spring-boot:run
-```
-
-Once started:
-- ≡ƒîÉ **Web Application**: Open [http://localhost:8085/](http://localhost:8085/)
-- ≡ƒôû **Interactive Swagger UI**: [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
-- ≡ƒôè **Actuator Health**: [http://localhost:8085/actuator/health](http://localhost:8085/actuator/health)
-
-### Running with Docker Compose (PostgreSQL 16 + Mailpit)
 ```bash
 docker compose up -d
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=prod
 ```
-- Web Application: `http://localhost:8085/`
-- PostgreSQL: `localhost:5432` (database: `iitsm_prod`)
-- Mailpit Web Mailbox: [http://localhost:8025](http://localhost:8025)
+
+| Service | Address |
+|---|---|
+| Web app | http://localhost:8085/ |
+| PostgreSQL | `localhost:5432`, database `iitsm_prod` |
+| Mailpit inbox | http://localhost:8025/ |
+
+The `prod` profile is stricter than the demo mode. For example, Swagger is switched off and sign-ups are limited to the company email domain. See [docs/security-considerations.md](docs/security-considerations.md) for the settings.
 
 ---
 
-## 7. Automated Verification & Testing Suite
+## 7. Tests
 
-To execute the entire test suite and generate the JaCoCo coverage report:
-```powershell
-# Windows PowerShell:
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
-.\mvnw.cmd clean verify
-```
-*(On Linux / macOS)*:
 ```bash
-./mvnw clean verify
+./mvnw clean verify          # everything (Windows: .\mvnw.cmd clean verify)
+./mvnw test -Pfast           # quicker: skips the slow database and benchmark tests
 ```
 
-### Verified Test Results
-- **Total Tests Run**: **205**
-- **Failures**: **0**
-- **Errors**: **0**
-- **Skipped**: **0**
-- **Line Coverage**: **87.4%** (`target/site/jacoco/index.html`)
-- **Architectural Rules**: Enforced via ArchUnit in `ArchitectureRegressionTest` to guarantee domain purity.
+Last full run: **2,057 tests, 0 failures, about 93% line coverage.** The build fails if coverage drops below 70%.
+
+Architecture rules are tested too. For instance, one test fails the build if the core business code ever imports Spring.
 
 ---
 
-## 8. Canonical Simulation Scenarios (S1ΓÇôS5)
+## 8. Built-in demo scenarios
 
-The platform provides 5 automated scenarios that can be executed directly from the Web Console (Simulation Engine tab) or via REST API:
+Five scripted scenarios can be run from the **Simulation** tab (as administrator) or the API. They use the simulation clock, so they finish in moments.
+
+| ID | Scenario | What you see |
+|---|---|---|
+| S1 | Happy path | Report, acknowledge, investigate, resolve, verify, close |
+| S2 | Critical outage | A P1 ticket gets late and escalates up the chain |
+| S3 | Wrong team | A technician says "not my area"; an admin re-routes it |
+| S4 | Duplicate storm | Five reports of one outage are linked together |
+| S5 | Waiting on the user | The SLA clock pauses while info is requested, then resumes |
+
+<details>
+<summary><b>Run them from the command line</b></summary>
 
 ```bash
-# 1. Obtain Admin JWT Token
 TOKEN=$(curl -s -X POST http://localhost:8085/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@nimbusfinserve.com","password":"Password123!"}' | jq -r .token)
 
-# 2. Run Any Scenario (S1..S5)
 curl -X POST http://localhost:8085/api/simulation/run/S1 -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8085/api/simulation/run/S2 -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8085/api/simulation/run/S3 -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8085/api/simulation/run/S4 -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8085/api/simulation/run/S5 -H "Authorization: Bearer $TOKEN"
 ```
 
-| Scenario ID | Scenario Name | Operational Flow Demonstrated |
-| :--- | :--- | :--- |
-| **S1** | **Happy Path Lifecycle** | Report ticket $\rightarrow$ Technician acknowledges $\rightarrow$ Investigates $\rightarrow$ Fast-forward 15 min $\rightarrow$ Resolves with root cause $\rightarrow$ Reporter verifies $\rightarrow$ 5-star closure. |
-| **S2** | **P1 Outage & Multi-Tier Escalations** | VP reports database deadlock $\rightarrow$ Forced P1 via `RULE_CRITICAL_SERVICE_OUTAGE` $\rightarrow$ Fast-forward 23 min (75% warning $\rightarrow$ Tier 1 reminder) $\rightarrow$ 28 min (93% warning $\rightarrow$ Tier 2 Team Lead intervention) $\rightarrow$ 33 min (110% breach $\rightarrow$ Tier 4 IT Manager alert). |
-| **S3** | **Wrong-Domain Flagging & Triage** | Ambiguous query timeout ticket assigned to Network $\rightarrow$ Tech flags out-of-scope $\rightarrow$ Reverts to `CLASSIFIED` in Triage Queue $\rightarrow$ Admin reclassifies to `DATABASE` and reassigns $\rightarrow$ Database tech acknowledges. |
-| **S4** | **Duplicate Storm & Avalanche** | Primary VPN ticket created $\rightarrow$ 5 duplicate VPN tickets concurrently filed by different employees $\rightarrow$ TF-IDF Cosine Similarity links all duplicates to cluster root parent $\rightarrow$ `RULE_DUPLICATE_AVALANCHE` elevates priority. |
-| **S5** | **Rejection Loop & SLA Clock Pausing** | Technician requests info $\rightarrow$ Status moves to `PENDING_INFO` and SLA clock pauses $\rightarrow$ Fast-forward 2 hours $\rightarrow$ User provides info $\rightarrow$ SLA clock resumes with 2h extension $\rightarrow$ Tech resolves $\rightarrow$ User rejects fix $\rightarrow$ Reopen count increments to 1 for rework cycle. |
+Replace `S1` with `S2` to `S5` for the others.
+</details>
 
 ---
 
-## 9. Course Documentation Deliverables
+## 9. How the code is organised
 
-All course documentation deliverables are cataloged under the `docs/` directory:
+The code is split into layers that only depend inward, so the business rules stay free of framework details:
 
-| Document | File Path | Contents |
-| :--- | :--- | :--- |
-| **Problem Analysis** | [`docs/01-problem-analysis.md`](docs/01-problem-analysis.md) | Industry context, operational inefficiencies, problem statement, stakeholder analysis, KPIs. |
-| **Requirements Specification** | [`docs/02-requirements.md`](docs/02-requirements.md) | Functional (FR-1..6) and Non-Functional (NFR-1..6) specifications, Requirements Traceability Matrix. |
-| **Architecture Specification**| [`docs/03-architecture.md`](docs/03-architecture.md) | Hexagonal Ports & Adapters, package structure, event-driven spine, concurrency & locking model. |
-| **Technology Report** | [`docs/04-technology-report.md`](docs/04-technology-report.md) | Technology choices, pure Java NLP benchmark vs external ML, virtual clock vs real sleep. |
-| **Design Patterns Catalog** | [`docs/05-design-patterns.md`](docs/05-design-patterns.md) | Viva defense guide for all 8 patterns (State, Strategy, Chain of Resp, Decorator, Observer, Composite, Factory, Repository). |
-| **Security Architecture** | [`docs/security.md`](docs/security.md) | Stateless JWT, BCrypt, 5-strike lockout, persona privacy wall, application-layer `AccessPolicy`. |
-| **Testing Catalog** | [`docs/testing/test-cases.md`](docs/testing/test-cases.md) | 25 documented test cases across Normal, Boundary, Invalid Input, Exceptions, Auth, Rules, and Integration. |
-| **Database Schema Reference**| [`docs/db/schema.md`](docs/db/schema.md) | Relational schema reference, column constraints, and index definitions. |
-| **Architecture Decisions** | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Formal ADRs (ADR-001 through ADR-008) recording architectural trade-offs and rationale. |
-| **Review Reports** | [`docs/review/`](docs/review/) | Audit reports and batch progression summaries. |
+```
+web  →  application  →  domain  ←  infrastructure
+```
+
+| Layer | Contains |
+|---|---|
+| `domain` | The core rules: tickets, the lifecycle state machine, priority, assignment, SLA, escalation. Plain Java, no Spring. |
+| `application` | Services that coordinate a use case in one transaction. |
+| `infrastructure` | Database, security, email, schedulers. |
+| `web` | REST controllers and the role-specific response objects. |
+
+The main object-oriented ideas on show, with a place to find each:
+
+| Idea | Where |
+|---|---|
+| **State**: a ticket's behaviour depends on its status | `domain/state` |
+| **Strategy**: swappable assignment, classification, priority, similarity | `domain/strategy` |
+| **Chain of Responsibility**: the four escalation tiers | `domain/chain/escalation` |
+| **Observer**: events trigger audit records and notifications | `domain/event`, `infrastructure/observer` |
+| **Decorator**: the adjustable simulation clock | `infrastructure/config/AdjustableClock` |
+| **Factory**: creating users and tickets safely | `application/service` |
+| **Repository**: domain interfaces, with database adapters elsewhere | `domain/repository`, `infrastructure/persistence` |
+
+The text classifier is written in plain Java too (TF-IDF, cosine similarity, Naive Bayes), so there is no heavy machine-learning library and its decisions can be explained.
+
+---
+
+## 10. Intelligent Features
+
+**Priority levels.** There are four levels: **P1 – Critical** (most urgent), **P2 – High**, **P3 – Medium** and **P4 – Low** (least urgent). P1 gets the shortest deadlines. The level comes from a score between 0 and 1 made from six factors, each with a weight (how much it counts): importance of the affected service 30%, impact 20%, urgency 15%, the reporter's designation 15%, how long the ticket has waited 10% and the reporter's past history 10%. A score of 0.75 or more is P1, 0.55 or more is P2, 0.35 or more is P3, and less is P4. Some rules can raise it: a mission-critical service going down is always P1, a confirmed security breach is at least P2, and five or more duplicate tickets raise the level by one.
+
+These features from the problem statement are all working:
+
+1. **Intelligent Priority Determination**: the weighted score and rules above. The admin can override it.
+2. **Incident Categorization**: the system reads the title and description and picks the category (Network, Database, Security and so on) and the affected service. If it is less than 60% sure, a human decides.
+3. **Duplicate Incident Detection**: a new ticket is compared with tickets from the last 72 hours. If the text is at least 70% similar, it is marked as a duplicate.
+4. **Incident Correlation**: duplicates are linked to one main ticket and do not use extra technician time.
+5. **Smart Technician Recommendation**: the best technician is picked using skills, current workload, experience and past work on the same service. The admin can see "Why this technician".
+6. **SLA Risk Detection**: the system keeps checking how much of the time limit is used and marks tickets At Risk, Warning or Breached (see Section 5).
+7. **Automatic Escalation**: if deadlines are missed, alerts go up step by step: Technician → Team Lead → System Admin → IT Manager.
+8. **Suggested Resolution**: the system shows up to three similar past fixes for a ticket.
+
+**Extra smart features beyond the list:**
+
+- *Wrong-password protection*: after 5 wrong password tries the account is locked automatically. The error message does not reveal whether the email or the password was wrong, and only an admin can unlock the account.
+- *Human triage queue*: unsure or wrong-team tickets go to an admin instead of being guessed.
+- *Explainable decisions*: every priority and technician choice shows its reasons.
+- *Strategy comparison*: a simulator that compares assignment methods (solving time, missed deadlines, fairness).
+- *Knowledge base with votes*: technicians save good fixes and votes help rank them.
+- *Live notifications*: the bell updates by itself; email and a simulated SMS are also sent.
+- *Timer pausing*: time spent waiting for the employee does not count against the technician.
+
+---
+
+## 11. Course concepts at a glance
+
+Where each CS F213 topic shows up in the code.
+
+| Course concept | Where to see it |
+|---|---|
+| **Encapsulation, immutability** | `Incident` keeps private fields and changes only through methods like `acknowledge()` and `resolve()`. Value objects such as `Priority` and `Email` are Java records. |
+| **Abstraction, interfaces** | `AssignmentStrategy`, `IncidentClassifier`, `NotificationChannel`, `IncidentRepository`. Callers depend on the interface, not the class. |
+| **Inheritance (true is-a only)** | Abstract `User`, then `Employee`, `Technician`, `Administrator`; `TeamLead` extends `Technician`. All custom errors extend `IitsmException`. |
+| **Polymorphism, overriding, dynamic dispatch** | The 9 ticket-state classes, 5 assignment strategies and 3 notification channels are swapped through one interface each. The admin can change the strategy while the app runs. |
+| **Composition, association** | An `Incident` owns its SLA tracker, priority decision and notes. The composite classifier is built from two classifiers. |
+| **Packages, access control** | Layered packages (`web`, `application`, `domain`, `infrastructure`). The domain package has no Spring imports, and an ArchUnit test fails the build if that changes. |
+| **Exception handling** | Custom unchecked exceptions such as `InvalidStateTransitionException` and `TechnicianOverloadedException`, turned into clear messages by one global handler. |
+| **Collections** | `EnumMap` for state lookup, `PriorityQueue` for the unassigned queue, `Deque`, `ConcurrentHashMap`, `Comparator`, and unmodifiable getters. |
+| **Generics, lambdas, streams** | Used throughout the application layer, with `Optional` instead of nulls. |
+| **Strings and regex** | Text normalisation for the classifier and removal of personal data from saved fixes. |
+| **File I/O** | The classifier is trained at start-up from a CSV file. |
+| **Multithreading and synchronisation** | Scheduled SLA scans, a dispatcher job, a notification worker thread, and locks that keep ticket intake safe under load. |
+| **Design patterns** | State, Strategy, Observer, Chain of Responsibility, Factory, Repository, Adapter, Composite and Decorator. Classes carry a `Pattern:` or `OOP:` note in their Javadoc. |
+| **OO analysis and design** | Requirements, use case and class diagrams (`docs/uml/`), and written design decisions (`docs/DECISIONS.md`). |
+
+---
+
+## 12. Documentation
+
+Start with **[docs/03-architecture.md](docs/03-architecture.md)** for the big picture.
+
+| Topic | File |
+|---|---|
+| Problem and stakeholders | [docs/01-problem-analysis.md](docs/01-problem-analysis.md) |
+| Requirements | [docs/02-requirements.md](docs/02-requirements.md) |
+| Architecture | [docs/03-architecture.md](docs/03-architecture.md) |
+| Technology choices | [docs/04-technology-report.md](docs/04-technology-report.md) |
+| Design patterns (viva guide) | [docs/05-design-patterns.md](docs/05-design-patterns.md) |
+| Security | [docs/security-considerations.md](docs/security-considerations.md) |
+| Design decisions (ADRs) | [docs/DECISIONS.md](docs/DECISIONS.md) |
+| Test cases | [docs/testing/test-cases.md](docs/testing/test-cases.md) |
+| Database schema | [docs/db/schema.md](docs/db/schema.md) |
+| Diagrams | [docs/uml/](docs/uml/) |
+
+Contributors and AI assistants: the detailed engineering rules live in [CLAUDE.md](CLAUDE.md).
