@@ -13,6 +13,7 @@ import com.iitsm.web.dto.FeedbackRequest;
 import com.iitsm.web.dto.ProvideInfoRequest;
 import com.iitsm.web.dto.RejectRequest;
 import com.iitsm.web.mapper.IncidentDtoMapper;
+import com.iitsm.web.security.CurrentUser;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.time.Clock;
@@ -42,16 +43,19 @@ public class EmployeeController {
     private final IncidentService incidentService;
     private final UserService userService;
     private final AuditService auditService;
+    private final CurrentUser currentUser;
     private final Clock clock;
 
     public EmployeeController(
             IncidentService incidentService,
             UserService userService,
             AuditService auditService,
+            CurrentUser currentUser,
             Clock clock) {
         this.incidentService = Objects.requireNonNull(incidentService, "incidentService cannot be null");
         this.userService = Objects.requireNonNull(userService, "userService cannot be null");
         this.auditService = Objects.requireNonNull(auditService, "auditService cannot be null");
+        this.currentUser = Objects.requireNonNull(currentUser, "currentUser cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
@@ -59,7 +63,7 @@ public class EmployeeController {
     public ResponseEntity<EmployeeIncidentView> raiseIncident(
             @Valid @RequestBody CreateIncidentRequest request,
             Authentication authentication) {
-        String reporterId = authentication.getName();
+        String reporterId = currentUser.idOf(authentication);
         Incident incident = incidentService.createIncident(reporterId, request.title(), request.description());
         EmployeeIncidentView view = mapToEmployeeView(incident);
         return ResponseEntity.created(URI.create("/api/employee/incidents/" + incident.getId())).body(view);
@@ -67,7 +71,7 @@ public class EmployeeController {
 
     @GetMapping
     public ResponseEntity<List<EmployeeIncidentView>> getMyTickets(Authentication authentication) {
-        String reporterId = authentication.getName();
+        String reporterId = currentUser.idOf(authentication);
         List<Incident> tickets = incidentService.getMyTickets(reporterId);
         List<EmployeeIncidentView> views = tickets.stream()
                 .map(this::mapToEmployeeView)
@@ -79,7 +83,7 @@ public class EmployeeController {
     public ResponseEntity<EmployeeIncidentView> getTicketDetails(
             @PathVariable("id") String id,
             Authentication authentication) {
-        String actorId = authentication.getName();
+        String actorId = currentUser.idOf(authentication);
         Incident incident = incidentService.getIncident(actorId, id);
         return ResponseEntity.ok(mapToEmployeeView(incident));
     }
@@ -89,7 +93,7 @@ public class EmployeeController {
             @PathVariable("id") String id,
             @Valid @RequestBody ProvideInfoRequest request,
             Authentication authentication) {
-        String employeeId = authentication.getName();
+        String employeeId = currentUser.idOf(authentication);
         Incident updated = incidentService.provideInfo(id, employeeId, request.responseText());
         return ResponseEntity.ok(mapToEmployeeView(updated));
     }
@@ -98,7 +102,7 @@ public class EmployeeController {
     public ResponseEntity<EmployeeIncidentView> verifyResolution(
             @PathVariable("id") String id,
             Authentication authentication) {
-        String employeeId = authentication.getName();
+        String employeeId = currentUser.idOf(authentication);
         Incident updated = incidentService.verify(id, employeeId);
         return ResponseEntity.ok(mapToEmployeeView(updated));
     }
@@ -108,7 +112,7 @@ public class EmployeeController {
             @PathVariable("id") String id,
             @Valid @RequestBody RejectRequest request,
             Authentication authentication) {
-        String employeeId = authentication.getName();
+        String employeeId = currentUser.idOf(authentication);
         Incident updated = incidentService.reject(id, employeeId, request.reason());
         return ResponseEntity.ok(mapToEmployeeView(updated));
     }
@@ -118,7 +122,7 @@ public class EmployeeController {
             @PathVariable("id") String id,
             @Valid @RequestBody FeedbackRequest request,
             Authentication authentication) {
-        String employeeId = authentication.getName();
+        String employeeId = currentUser.idOf(authentication);
         Feedback feedback = new Feedback(request.rating(), request.comment(), clock.instant());
         Incident updated = incidentService.close(id, employeeId, feedback);
         return ResponseEntity.ok(mapToEmployeeView(updated));

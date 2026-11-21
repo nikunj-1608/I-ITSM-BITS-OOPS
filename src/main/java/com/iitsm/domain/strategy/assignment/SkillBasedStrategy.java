@@ -2,9 +2,8 @@ package com.iitsm.domain.strategy.assignment;
 
 import com.iitsm.domain.exception.TechnicianUnavailableException;
 import com.iitsm.domain.model.Incident;
-import com.iitsm.domain.model.Skill;
 import com.iitsm.domain.model.Technician;
-import com.iitsm.domain.strategy.nlp.TextNormalizer;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -12,66 +11,60 @@ import java.util.Locale;
 /**
  * Pattern: Strategy.
  * Routes incidents to the technician with highest technical skill overlap against category and keywords.
+ *
+ * <p>Score (ADR-044, unchanged): skill score = {@value #SCORE_PER_CATEGORY_SKILL} per skill of the ticket's category
+ * plus {@value #SCORE_PER_KEYWORD_POINT} per keyword point ({@link SkillEvidence}), capped at 1, minus a small load
+ * penalty of {@value #LOAD_PENALTY_WEIGHT} x load ratio, never below 0. The penalty shows in the explanation as the
+ * factor {@code LOAD_PENALTY} with a negative weight. Ties keep the first candidate.
  */
 public class SkillBasedStrategy implements AssignmentStrategy {
 
     public static final String STRATEGY_NAME = "SKILL_BASED";
+    public static final String LOAD_PENALTY_KEY = "LOAD_PENALTY";
+    /** Skill score per skill of the ticket's category. */
+    public static final double SCORE_PER_CATEGORY_SKILL = 0.30;
+    /** Skill score per keyword point. */
+    public static final double SCORE_PER_KEYWORD_POINT = 0.15;
+    /** How much a full load lowers the score (prefer the less loaded of similar technicians). */
+    public static final double LOAD_PENALTY_WEIGHT = 0.10;
 
     @Override
     public AssignmentRecommendation recommend(Incident incident, List<Technician> candidates) {
+        RankedCandidates ranking = score(incident, candidates);
+        RankedCandidates.Entry top = ranking.top();
+        SkillEvidence evidence = SkillEvidence.of(top.technician(), AssignmentContext.of(incident));
+        String rationale = String.format("Selected for high skill alignment: %d category skills, %d keyword matches (score: %.2f)",
+                evidence.categorySkills(), evidence.keywordPoints(), top.factorScores().get(0).rawScore());
+        return ranking.toRecommendation(STRATEGY_NAME, rationale);
+    }
+
+    @Override
+    public List<CandidateScore> rank(Incident incident, List<Technician> candidates) {
+        return score(incident, candidates).scores();
+    }
+
+    private RankedCandidates score(Incident incident, List<Technician> candidates) {
         if (candidates == null || candidates.isEmpty()) {
             throw new TechnicianUnavailableException("No available technicians found for skill-based assignment");
         }
-
-        String fullText = ((incident.getTitle() != null ? incident.getTitle() : "") + " "
-                + (incident.getDescription() != null ? incident.getDescription() : "")).toLowerCase(Locale.ROOT);
-        List<String> tokens = TextNormalizer.tokenize(fullText);
-
-        Technician bestTech = null;
-        double bestScore = -1.0;
-        String bestRationale = "";
-
-        for (Technician tech : candidates) {
-            int categoryMatchCount = 0;
-            int keywordMatchCount = 0;
-
-            for (Skill skill : tech.getSkills()) {
-                if (incident.getCategory() != null && skill.category() == incident.getCategory()) {
-                    categoryMatchCount++;
-                }
-                String skillName = skill.name().toLowerCase(Locale.ROOT);
-                if (fullText.contains(skillName)) {
-                    keywordMatchCount += 2;
-                } else {
-                    for (String token : tokens) {
-                        if (skillName.contains(token)) {
-                            keywordMatchCount += 1;
-                        }
-                    }
-                }
-            }
-
-            // Raw skill score normalized to [0.0, 1.0]
-            double skillScore = Math.min(1.0, (categoryMatchCount * 0.30) + (keywordMatchCount * 0.15));
-            // Slight load tiebreak (prefer less loaded if skill is similar)
-            double loadPenalty = tech.getLoadRatio() * 0.10;
-            double effectiveScore = Math.max(0.0, skillScore - loadPenalty);
-
-            if (effectiveScore > bestScore) {
-                bestScore = effectiveScore;
-                bestTech = tech;
-                bestRationale = String.format("Selected for high skill alignment: %d category skills, %d keyword matches (score: %.2f)",
-                        categoryMatchCount, keywordMatchCount, skillScore);
-            }
+        AssignmentContext context = AssignmentContext.of(incident);
+        List<RankedCandidates.Entry> entries = new ArrayList<>(candidates.size());
+        for (Technician technician : candidates) {
+            entries.add(scoreOne(context, technician));
         }
+        return RankedCandidates.rank(entries, Comparator.comparingDouble(RankedCandidates.Entry::total).reversed());
+    }
 
-        if (bestTech == null) {
-            bestTech = candidates.get(0);
-            bestRationale = "Default fallback candidate from eligible pool";
-            bestScore = 0.50;
-        }
-
-        return new AssignmentRecommendation(bestTech, bestScore, STRATEGY_NAME, bestRationale);
+    private RankedCandidates.Entry scoreOne(AssignmentContext context, Technician technician) {
+        SkillEvidence evidence = SkillEvidence.of(technician, context);
+        double skillScore = Math.min(1.0, (evidence.categorySkills() * SCORE_PER_CATEGORY_SKILL)
+                + (evidence.keywordPoints() * SCORE_PER_KEYWORD_POINT));
+        FactorScore skill = FactorScore.of(SkillMatchFactor.KEY, skillScore, 1.0, String.format(Locale.ROOT,
+                "%d category skills, %d keyword points", evidence.categorySkills(), evidence.keywordPoints()));
+        FactorScore penalty = FactorScore.of(LOAD_PENALTY_KEY, technician.getLoadRatio(), -LOAD_PENALTY_WEIGHT,
+                LoadFactor.activeTickets(technician));
+        double total = Math.max(0.0, skill.contribution() + penalty.contribution());
+        return new RankedCandidates.Entry(technician, List.of(skill, penalty), total);
     }
 
     @Override
@@ -84,4 +77,3 @@ public class SkillBasedStrategy implements AssignmentStrategy {
         return "Routes incidents to technicians whose skill profile best matches the incident category and keywords.";
     }
 }
-

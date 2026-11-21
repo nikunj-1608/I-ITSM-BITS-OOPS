@@ -1,5 +1,6 @@
 package com.iitsm.infrastructure.persistence.adapter;
 
+import com.iitsm.domain.exception.ConcurrentUpdateException;
 import com.iitsm.domain.exception.PersistenceFailureException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
@@ -38,10 +39,10 @@ public class IncidentRepositoryAdapter implements IncidentRepository {
             IncidentJpaEntity saved = springDataRepository.save(jpaEntity);
             return IncidentMapper.toDomain(saved);
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException | jakarta.persistence.OptimisticLockException ex) {
-            throw new java.util.ConcurrentModificationException("Incident " + incident.getId() + " was modified concurrently by another transaction", ex);
+            throw new ConcurrentUpdateException(ex);
         } catch (DataAccessException ex) {
             if (ex.getCause() instanceof jakarta.persistence.OptimisticLockException || ex instanceof org.springframework.orm.ObjectOptimisticLockingFailureException) {
-                throw new java.util.ConcurrentModificationException("Incident " + incident.getId() + " was modified concurrently by another transaction", ex);
+                throw new ConcurrentUpdateException(ex);
             }
             throw new PersistenceFailureException("Failed to save incident: " + incident.getId(), ex);
         }
@@ -131,6 +132,43 @@ public class IncidentRepositoryAdapter implements IncidentRepository {
                     .collect(Collectors.toList());
         } catch (DataAccessException ex) {
             throw new PersistenceFailureException("Failed to query active incidents", ex);
+        }
+    }
+
+    @Override
+    public List<Incident> findByServiceIdIn(java.util.Collection<String> serviceIds) {
+        if (serviceIds == null || serviceIds.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return springDataRepository.findByServiceIdIn(serviceIds).stream()
+                    .map(IncidentMapper::toDomain)
+                    .collect(Collectors.toList());
+        } catch (DataAccessException ex) {
+            throw new PersistenceFailureException("Failed to query incidents of services " + serviceIds, ex);
+        }
+    }
+
+    @Override
+    public List<Incident> findByCategoryIn(java.util.Collection<IncidentCategory> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return springDataRepository.findByCategoryIn(categories).stream()
+                    .map(IncidentMapper::toDomain)
+                    .collect(Collectors.toList());
+        } catch (DataAccessException ex) {
+            throw new PersistenceFailureException("Failed to query incidents of categories " + categories, ex);
+        }
+    }
+
+    @Override
+    public List<String> findActiveIncidentIds() {
+        try {
+            return springDataRepository.findActiveIncidentIds();
+        } catch (DataAccessException ex) {
+            throw new PersistenceFailureException("Failed to query active incident ids", ex);
         }
     }
 

@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -22,9 +23,12 @@ public class IitsmApplication {
 
     /**
      * Injects an AdjustableClock instance allowing live simulation acceleration (x1, x60, x600)
-     * and fast-forward jumps across the application.
+     * and fast-forward jumps across the application. Primary since ADR-046: security code injects the separate
+     * {@code wallClock} bean ({@link com.iitsm.infrastructure.config.SecurityTimeConfig}) by name, everything else
+     * keeps getting this one.
      */
     @Bean
+    @Primary
     public Clock clock() {
         return new AdjustableClock(Instant.now(), ZoneId.of("UTC"));
     }

@@ -1,3 +1,9 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
 spring:
   application:
     name: i-itsm-test
@@ -33,9 +39,46 @@ iitsm:
   security:
     jwt:
       secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
-      expiration-ms: 3600000
+      expiration-ms: 900000
+    # ADR-048: a test-only key (the committed development key is a different one)
+    mfa:
+      encryption-key: "mV9eXcXph7Gk2nBPam+HtTYYdx1wQb3qW2fiHtVnLdE="
+      issuer: "Nimbus FinServe I-ITSM"
+      challenge-minutes: 5
+      window-steps: 1
+      recovery-code-count: 8
+    # ADR-047: the cleanup runs once at start-up and then hourly, like the other schedulers in this profile
+    refresh:
+      ttl-hours: 8
+      max-sessions-per-user: 10
+      cleanup-interval-ms: 3600000
+      purge-after-days: 7
     max-failed-logins: 5
+    # ADR-046: off for the suite (hundreds of logins from 127.0.0.1); RateLimitRegressionTest switches it on
+    rate-limit:
+      enabled: false
   simulation:
     seed: 42
     auto-seed: false
+  # The background dispatcher of every cached test context shares the one in-memory database. Tests that need it
+  # call dispatchWaitingIncidents() themselves; a one-hour interval keeps stray runs from assigning tickets that a
+  # test planted and is still asserting on (ADR-026).
+  # Tests damage capacity slots on purpose in one shared database, so the start-up line would only report noise.
+  capacity:
+    startup-check: false
+  dispatcher:
+    interval-ms: 3600000
+    initial-delay-ms: 3600000
+  # Same reason for the SLA scan: tests that need it call evaluateAllActiveIncidents() themselves (ADR-031).
+  sla:
+    scan-interval-ms: 3600000
+
+# Most test classes run without an SMTP server, so every e-mail notification fails (two WARN lines each,
+# about 1,600 per full run) and buries real warnings. The failure isolation itself is covered by
+# NotificationSystemTest, and the mail tests assert on received messages, not on log lines.
+# ERROR-level lines from these classes still appear. ADR-025.
+logging:
+  level:
+    com.iitsm.infrastructure.notification.EmailChannel: ERROR
+    com.iitsm.infrastructure.notification.NotificationRouter: ERROR
 

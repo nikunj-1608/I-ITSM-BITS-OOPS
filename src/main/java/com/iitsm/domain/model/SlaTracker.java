@@ -4,12 +4,18 @@ import com.iitsm.domain.exception.ValidationException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * OOP: Value Object / Lifecycle entity tracking SLA compliance for an incident.
  * Encapsulates response/resolution deadlines, pause intervals during PENDING_INFO, and status evaluation.
+ * OOP: Encapsulation. The tracker owns the paused-clock rule (time is read at the pause instant while
+ * paused), so callers never check the pause state themselves.
  */
 public class SlaTracker {
+
+    private static final double AT_RISK_RATIO = 0.75;
+    private static final double WARNING_RATIO = 0.90;
 
     private final Instant createdAt;
     private Instant responseDueAt;
@@ -17,6 +23,7 @@ public class SlaTracker {
     private Instant respondedAt;
     private Instant resolvedAt;
     private Duration pausedDuration;
+    private Duration creditedDuration;
     private Instant pausedAt;
     private SlaStatus status;
 
@@ -29,6 +36,7 @@ public class SlaTracker {
         this.responseDueAt = deadlines.responseDueAt();
         this.resolutionDueAt = deadlines.resolutionDueAt();
         this.pausedDuration = Duration.ZERO;
+        this.creditedDuration = Duration.ZERO;
         this.pausedAt = null;
         this.status = SlaStatus.ON_TRACK;
     }
@@ -44,9 +52,22 @@ public class SlaTracker {
         Objects.requireNonNull(newPolicy, "newPolicy cannot be null");
         Objects.requireNonNull(now, "now cannot be null");
         Duration pauseOffset = (this.pausedDuration != null) ? this.pausedDuration : Duration.ZERO;
-        this.responseDueAt = this.createdAt.plus(newPolicy.getResponseTarget()).plus(pauseOffset);
-        this.resolutionDueAt = this.createdAt.plus(newPolicy.getResolutionTarget()).plus(pauseOffset);
+        // Once the response is recorded, later pauses (waiting for the employee) must not move its deadline: a late
+        // response would look on time after a policy change (ADR-030). Before the response a pause does move it.
+        Duration responsePause = (this.respondedAt == null) ? pauseOffset : Duration.ZERO;
+        this.responseDueAt = this.createdAt.plus(newPolicy.getResponseTarget()).plus(responsePause);
+        this.resolutionDueAt = this.createdAt.plus(newPolicy.getResolutionTarget()).plus(pauseOffset).plus(creditedDuration);
         evaluateStatus(now);
+    }
+
+    /**
+     * Re-anchors the deadlines to a new policy (priority change). A ticket that already has its
+     * resolution keeps the deadlines and verdict it earned; rewriting them would rewrite history.
+     */
+    public void reanchor(SlaPolicy newPolicy, Instant now) {
+        if (this.resolvedAt == null) {
+            updatePolicy(newPolicy, now);
+        }
     }
 
     public static SlaTracker reconstitute(
@@ -58,10 +79,25 @@ public class SlaTracker {
             Duration pausedDuration,
             Instant pausedAt,
             SlaStatus status) {
+        return reconstitute(createdAt, responseDueAt, resolutionDueAt, respondedAt, resolvedAt, pausedDuration,
+                Duration.ZERO, pausedAt, status);
+    }
+
+    public static SlaTracker reconstitute(
+            Instant createdAt,
+            Instant responseDueAt,
+            Instant resolutionDueAt,
+            Instant respondedAt,
+            Instant resolvedAt,
+            Duration pausedDuration,
+            Duration creditedDuration,
+            Instant pausedAt,
+            SlaStatus status) {
         SlaTracker tracker = new SlaTracker(createdAt, new DeadlinePair(responseDueAt, resolutionDueAt));
         tracker.respondedAt = respondedAt;
         tracker.resolvedAt = resolvedAt;
         tracker.pausedDuration = (pausedDuration != null) ? pausedDuration : Duration.ZERO;
+        tracker.creditedDuration = (creditedDuration != null) ? creditedDuration : Duration.ZERO;
         tracker.pausedAt = pausedAt;
         tracker.status = (status != null) ? status : SlaStatus.ON_TRACK;
         return tracker;
@@ -91,6 +127,11 @@ public class SlaTracker {
         return pausedDuration;
     }
 
+    /** Time credited to the resolution deadline for waiting on an employee's verdict (rejected fixes). */
+    public Duration getCreditedDuration() {
+        return creditedDuration;
+    }
+
     public Instant getPausedAt() {
         return pausedAt;
     }
@@ -117,11 +158,28 @@ public class SlaTracker {
             resumeClock(now);
         }
         this.resolvedAt = now;
-        if (now.isAfter(resolutionDueAt)) {
-            this.status = SlaStatus.BREACHED;
-        } else {
-            this.status = SlaStatus.MET;
+        // MET needs both targets met: a late response is not forgotten by a timely resolution (ADR-030).
+        boolean breached = now.isAfter(resolutionDueAt) || responseBreached(now);
+        this.status = breached ? SlaStatus.BREACHED : SlaStatus.MET;
+    }
+
+    /**
+     * Undoes a resolution that the employee rejected, so the clock works on the ticket again.
+     * The time the ticket waited for the verdict is credited to the resolution deadline.
+     */
+    public void reopen(Instant now) {
+        Objects.requireNonNull(now, "reopen timestamp cannot be null");
+        if (resolvedAt == null) {
+            return;
         }
+        Duration verdictWait = Duration.between(resolvedAt, now);
+        if (!verdictWait.isNegative()) {
+            this.resolutionDueAt = this.resolutionDueAt.plus(verdictWait);
+            this.creditedDuration = this.creditedDuration.plus(verdictWait);
+        }
+        this.resolvedAt = null;
+        this.status = SlaStatus.ON_TRACK;
+        evaluateStatus(now);
     }
 
     public void pauseClock(Instant now) {
@@ -149,14 +207,66 @@ public class SlaTracker {
         }
     }
 
+    /**
+     * The instant the SLA clock should be read at: frozen at the moment the clock was paused
+     * (ticket waiting for the employee), the real time otherwise.
+     */
+    private Instant effectiveNow(Instant now) {
+        return isPaused() ? pausedAt : now;
+    }
+
+    /**
+     * True when no response has been recorded and the response target has passed on the SLA clock.
+     * A paused clock never counts as overdue past its pause instant.
+     */
+    public boolean isResponseOverdue(Instant now) {
+        Objects.requireNonNull(now, "current timestamp cannot be null");
+        return respondedAt == null && effectiveNow(now).isAfter(responseDueAt);
+    }
+
+    /**
+     * The response target was missed: the response came after its deadline, or none has come and the deadline has passed
+     * on the SLA clock. Derived from stored fields only, so it survives a reload and needs no extra column.
+     */
+    private boolean responseBreached(Instant clockNow) {
+        return respondedAt == null ? clockNow.isAfter(responseDueAt) : respondedAt.isAfter(responseDueAt);
+    }
+
+    /** Which target a BREACHED ticket missed first: the response target comes before the resolution target. */
+    public enum BreachedTarget {
+        RESPONSE("RESPONSE_TARGET"),
+        RESOLUTION("RESOLUTION_TARGET");
+
+        private final String label;
+
+        BreachedTarget(String label) {
+            this.label = label;
+        }
+
+        /** The name carried by the SlaViolated event. */
+        public String label() {
+            return label;
+        }
+    }
+
+    /** The target the ticket breached, empty while it is not BREACHED. */
+    public Optional<BreachedTarget> breachedTarget(Instant now) {
+        Objects.requireNonNull(now, "current timestamp cannot be null");
+        if (status != SlaStatus.BREACHED) {
+            return Optional.empty();
+        }
+        return Optional.of(responseBreached(effectiveNow(now)) ? BreachedTarget.RESPONSE : BreachedTarget.RESOLUTION);
+    }
+
     public void evaluateStatus(Instant now) {
         Objects.requireNonNull(now, "current timestamp cannot be null");
         if (status == SlaStatus.MET) {
             return;
         }
+        Instant clockNow = effectiveNow(now);
 
-        // Check if response target breached
-        if (respondedAt == null && now.isAfter(responseDueAt)) {
+        // A response breach is remembered: it stays after the response arrives and after a timely resolution (ADR-030)
+        if (responseBreached(clockNow)) {
             this.status = SlaStatus.BREACHED;
             return;
         }
@@ -165,19 +275,14 @@ public class SlaTracker {
         if (resolvedAt != null) {
             this.status = resolvedAt.isAfter(resolutionDueAt) ? SlaStatus.BREACHED : SlaStatus.MET;
             return;
-        } else if (now.isAfter(resolutionDueAt)) {
+        } else if (clockNow.isAfter(resolutionDueAt)) {
             this.status = SlaStatus.BREACHED;
-            return;
-        }
-
-        // If clock is paused during PENDING_INFO, freeze status
-        if (isPaused()) {
             return;
         }
 
         // Calculate progress percentage of resolution target
         Duration totalWindow = Duration.between(createdAt, resolutionDueAt).minus(pausedDuration);
-        Duration elapsed = Duration.between(createdAt, now).minus(pausedDuration);
+        Duration elapsed = Duration.between(createdAt, clockNow).minus(pausedDuration);
 
         if (totalWindow.toMillis() <= 0) {
             this.status = SlaStatus.BREACHED;
@@ -185,9 +290,9 @@ public class SlaTracker {
         }
 
         double ratio = (double) elapsed.toMillis() / (double) totalWindow.toMillis();
-        if (ratio >= 0.90) {
+        if (ratio >= WARNING_RATIO) {
             this.status = SlaStatus.WARNING;
-        } else if (ratio >= 0.75) {
+        } else if (ratio >= AT_RISK_RATIO) {
             this.status = SlaStatus.AT_RISK;
         } else {
             this.status = SlaStatus.ON_TRACK;
@@ -201,10 +306,10 @@ public class SlaTracker {
         if (status == SlaStatus.MET) {
             return 0.0;
         }
-        if (status == SlaStatus.BREACHED || now.isAfter(resolutionDueAt)) {
+        Instant effectiveNow = effectiveNow(now);
+        if (status == SlaStatus.BREACHED || effectiveNow.isAfter(resolutionDueAt)) {
             return 1.0;
         }
-        Instant effectiveNow = isPaused() ? pausedAt : now;
         Duration totalWindow = Duration.between(createdAt, resolutionDueAt).minus(pausedDuration);
         if (totalWindow.toMillis() <= 0) {
             return 1.0;

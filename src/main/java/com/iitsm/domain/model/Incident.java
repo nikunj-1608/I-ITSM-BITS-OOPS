@@ -1,5 +1,6 @@
 package com.iitsm.domain.model;
 
+import com.iitsm.domain.exception.InvalidStateTransitionException;
 import com.iitsm.domain.exception.ValidationException;
 import com.iitsm.domain.state.IncidentStates;
 import java.time.Instant;
@@ -57,8 +58,8 @@ public class Incident {
         }
 
         this.id = id.trim();
-        this.title = sanitizeHtml(title.trim());
-        this.description = sanitizeHtml(description.trim());
+        this.title = title.trim();
+        this.description = description.trim();
         this.reporterId = reporterId.trim();
         this.createdAt = createdAt;
 
@@ -205,47 +206,62 @@ public class Incident {
         }
     }
 
+    /**
+     * Changes the category and service. History is never rewritten: a manual priority override and the SLA
+     * verdict of a resolved ticket stay as they are, and an open ticket's tracker is re-anchored to the new
+     * policy instead of replaced, so the recorded response and a paused clock survive.
+     */
     public void reclassify(IncidentCategory category, String serviceId, PriorityDecision priorityDecision, SlaPolicy slaPolicy, Instant now) {
         Objects.requireNonNull(category, "category cannot be null");
         this.category = category;
         if (serviceId != null) {
             this.serviceId = serviceId;
         }
+        if (isPrioritySettled()) {
+            return;
+        }
         if (priorityDecision != null) {
             this.priorityDecision = priorityDecision;
         }
         if (slaPolicy != null) {
-            this.slaTracker = SlaTracker.create(this.createdAt, slaPolicy);
+            if (this.slaTracker != null) {
+                this.slaTracker.reanchor(slaPolicy, now);
+            } else {
+                this.slaTracker = SlaTracker.create(this.createdAt, slaPolicy);
+            }
         }
     }
 
-    public void overridePriority(Priority newPriority, String adminId, String reason, Instant now) {
+    /** True when a recalculation would overwrite a manual override or a verdict the ticket already earned. */
+    public boolean isPrioritySettled() {
+        boolean overridden = this.priorityDecision != null && this.priorityDecision.isOverridden();
+        boolean resolved = this.slaTracker != null && this.slaTracker.getResolvedAt() != null;
+        return overridden || resolved;
+    }
+
+    public void overridePriority(Priority newPriority, String adminId, String reason, SlaPolicy slaPolicy, Instant now) {
+        if (!IncidentStates.of(this.status).allowsPriorityOverride()) {
+            throw new InvalidStateTransitionException(this.status, "overridePriority", IncidentStates.of(this.status).allowedActions());
+        }
         if (this.priorityDecision == null) {
             throw new ValidationException("priorityDecision", "Cannot override priority before classification");
         }
         if (reason == null || reason.trim().isEmpty()) {
             throw new ValidationException("reason", "Mandatory reason required for priority override");
         }
+        if (slaPolicy != null && slaPolicy.getPriority() != newPriority) {
+            throw new ValidationException("slaPolicy", "SLA policy must be the one for the overridden priority");
+        }
         this.priorityDecision = this.priorityDecision.withOverride(newPriority, adminId, reason.trim(), now);
+        if (slaPolicy != null && this.slaTracker != null) {
+            this.slaTracker.reanchor(slaPolicy, now);
+        }
     }
 
     public void updateSlaStatus(Instant now) {
         if (this.slaTracker != null) {
             this.slaTracker.evaluateStatus(now);
         }
-    }
-
-    // --- Invariant & HTML Escaping Helpers ---
-
-    private static String sanitizeHtml(String input) {
-        if (input == null) {
-            return null;
-        }
-        return input.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#x27;");
     }
 
     // --- Getters returning immutable views (Section 2 Rule 10) ---
@@ -302,6 +318,25 @@ public class Incident {
         return Collections.unmodifiableList(notes);
     }
 
+    /**
+     * Tell, Don't Ask (ADR-043): may this user promote the ticket's fix into the knowledge base now? The same rules as
+     * {@link KnowledgeArticle#promote}: a confirmed resolution with a category, and an actor allowed by
+     * {@link User#canPromoteResolution}. Whether the ticket was already promoted is not known here (the server answers 409).
+     */
+    public boolean canBePromotedBy(User actor) {
+        return actor != null && status.hasConfirmedResolution() && resolution != null && category != null
+                && actor.canPromoteResolution(resolution);
+    }
+
+    /**
+     * Tell, Don't Ask (ADR-045): may this user give the ticket to another technician of the team now? The user must be
+     * allowed to reassign team tickets, the status must allow it, and a ticket in triage stays with the administrator.
+     * Whether the ticket belongs to the user's team is not known here (the application service checks it).
+     */
+    public boolean canBeReassignedBy(User actor) {
+        return actor != null && actor.canReassignTeamTickets() && status.canBeReassignedByTeamLead() && !needsTriage;
+    }
+
     public Resolution getResolution() {
         return resolution;
     }
@@ -330,6 +365,14 @@ public class Incident {
         return needsTriage;
     }
 
+    /**
+     * True when the ticket waits for an automatic assignment: classified, no assignee yet and not held back for human
+     * triage (ADR-009: humans own low-confidence tickets, so the dispatcher never touches those).
+     */
+    public boolean isAwaitingAutomaticAssignment() {
+        return status == IncidentStatus.CLASSIFIED && assigneeId == null && !needsTriage;
+    }
+
     public void setNeedsTriage(boolean needsTriage) {
         this.needsTriage = needsTriage;
     }
@@ -346,6 +389,13 @@ public class Incident {
 
     public void clearExcludedTechnicians() {
         this.excludedTechnicianIds.clear();
+    }
+
+    /** Lets one technician work on the ticket again (an administrator rejected the technician's wrong-domain flag). */
+    public void removeExcludedTechnician(String technicianId) {
+        if (technicianId != null) {
+            this.excludedTechnicianIds.remove(technicianId.trim());
+        }
     }
 }
 

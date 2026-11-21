@@ -14,6 +14,13 @@ import java.util.Objects;
  */
 public interface AccessPolicy {
 
+    /** The non-throwing form of {@link #enforceCanViewIncident}, for filtering lists. */
+    default boolean canViewIncident(User actor, Incident incident, String owningTeamId) {
+        Objects.requireNonNull(actor, "actor cannot be null");
+        Objects.requireNonNull(incident, "incident cannot be null");
+        return actor.canViewIncident(incident, owningTeamId);
+    }
+
     default void enforceCanViewIncident(User actor, Incident incident) {
         enforceCanViewIncident(actor, incident, null);
     }

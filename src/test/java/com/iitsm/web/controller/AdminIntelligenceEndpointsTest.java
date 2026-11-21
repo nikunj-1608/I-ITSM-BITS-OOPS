@@ -15,6 +15,8 @@ import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.security.JwtTokenProvider;
 import com.iitsm.web.dto.ReclassifyRequest;
 import com.iitsm.web.dto.SwitchStrategyRequest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,9 @@ class AdminIntelligenceEndpointsTest {
     @Autowired
     private com.iitsm.infrastructure.persistence.CompanySeeder companySeeder;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private User admin;
     private String token;
     private Incident incident;
@@ -70,6 +75,10 @@ class AdminIntelligenceEndpointsTest {
                 "EMP-0001",
                 "Internal web portal 500 error",
                 "Receiving HTTP 500 when accessing employee benefits portal.");
+        // The intake assigns the technician in its own transaction. Drop the test's cached copies so the
+        // request below reads the committed rows, as a real request (its own transaction) would.
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Test

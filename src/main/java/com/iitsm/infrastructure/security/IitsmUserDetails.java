@@ -13,14 +13,14 @@ public class IitsmUserDetails extends org.springframework.security.core.userdeta
     private final String userId;
     private final int tokenVersion;
 
-    public IitsmUserDetails(User user, Collection<? extends GrantedAuthority> authorities) {
+    public IitsmUserDetails(User user, Collection<? extends GrantedAuthority> authorities, java.time.Instant now) {
         super(
                 user.getEmail().value(),
                 user.getPasswordHash(),
                 user.isActive(),
                 true,
                 true,
-                !user.isLocked(),
+                !user.isCurrentlyLocked(now),
                 authorities
         );
         this.userId = user.getId();

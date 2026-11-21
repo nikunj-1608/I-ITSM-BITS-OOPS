@@ -1,5 +1,6 @@
 package com.iitsm.application.service;
 
+import com.iitsm.application.policy.RegistrationPolicy;
 import com.iitsm.application.port.TokenPort;
 import com.iitsm.domain.exception.DuplicateIncidentException;
 import com.iitsm.domain.exception.InvalidCredentialsException;
@@ -17,8 +18,11 @@ import com.iitsm.domain.model.User;
 import com.iitsm.domain.model.UserRole;
 import com.iitsm.domain.repository.TechnicianRepository;
 import com.iitsm.domain.repository.UserRepository;
+import java.time.Clock;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -34,7 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
  * Application service managing user credentials, registration, and role lifecycle.
  */
 @Service
-@Transactional
 public class UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
@@ -45,6 +48,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final TokenPort tokenProvider;
     private final LoginAttemptService loginAttemptService;
+    private final RegistrationPolicy registrationPolicy;
+    private final Clock clock;
     private final int maxFailedLogins;
 
     public UserService(
@@ -54,6 +59,8 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             TokenPort tokenProvider,
             LoginAttemptService loginAttemptService,
+            RegistrationPolicy registrationPolicy,
+            Clock clock,
             @Value("${iitsm.security.max-failed-logins:5}") int maxFailedLogins) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository cannot be null");
         this.technicianRepository = Objects.requireNonNull(technicianRepository, "technicianRepository cannot be null");
@@ -61,22 +68,37 @@ public class UserService {
         this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder cannot be null");
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider cannot be null");
         this.loginAttemptService = Objects.requireNonNull(loginAttemptService, "loginAttemptService cannot be null");
+        this.registrationPolicy = Objects.requireNonNull(registrationPolicy, "registrationPolicy cannot be null");
+        this.clock = Objects.requireNonNull(clock, "clock cannot be null");
         this.maxFailedLogins = maxFailedLogins;
     }
 
     public record AuthResult(String token, User user) {}
 
+    /**
+     * Checks the credentials. Deliberately carries no {@code @Transactional} at all, and this class has none at class
+     * level: the lookup and the counter updates of {@link LoginAttemptService} each run in their own short transaction,
+     * so no login holds a connection while it checks the password or waits for another connection (ADR-033), and the
+     * failure counter is committed before the exception is thrown. Even {@code SUPPORTS} is not enough: Spring then opens
+     * an "empty" transaction scope whose persistence context keeps the connection of the first query until the method
+     * ends (measured: a pool of 3 starved with 12 simultaneous logins).
+     */
     public AuthResult authenticate(String emailStr, String rawPassword) {
+        User user = verifyCredentials(emailStr, rawPassword);
+        return new AuthResult(tokenProvider.generateToken(user), user);
+    }
+
+    /**
+     * Checks the credentials and returns the user, with the failure counting and the lock rules of {@link #authenticate}
+     * (the same generic "Invalid credentials" for every failure). Like {@code authenticate} it has no transaction at
+     * all (ADR-033); {@code AuthSessionService.login} builds the session from it (ADR-047).
+     */
+    public User verifyCredentials(String emailStr, String rawPassword) {
         if (emailStr == null || rawPassword == null) {
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
-        String lookupEmailStr = emailStr.trim();
-        if ("tech.database@nimbusfinserve.com".equalsIgnoreCase(lookupEmailStr)) {
-            lookupEmailStr = "tech.db1@nimbusfinserve.com";
-        }
-
-        Email email = new Email(lookupEmailStr);
+        Email email = new Email(emailStr.trim());
         User user = userRepository.findByEmail(email)
                 .orElse(null);
 
@@ -90,7 +112,7 @@ public class UserService {
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
-        if (user.isLocked()) {
+        if (user.isCurrentlyLocked(clock.instant())) {
             log.warn("Authentication failed: user '{}' is locked", emailStr);
             throw new InvalidCredentialsException("Invalid credentials");
         }
@@ -102,15 +124,20 @@ public class UserService {
         }
 
         // Successful authentication
-        loginAttemptService.resetFailedAttempts(emailStr);
-        String token = tokenProvider.generateToken(user);
-        return new AuthResult(token, user);
+        // ADR-048: with two-step verification the password step alone does not clear the failure count, or an attacker
+        // who knows the password could reset it before every guess of the code; the second step clears it
+        if (!user.isMfaEnabled()) {
+            loginAttemptService.resetFailedAttempts(emailStr);
+        }
+        return user;
     }
 
+    @Transactional
     public void unlockUser(String userId) {
         loginAttemptService.unlockUser(userId);
     }
 
+    @Transactional
     public Employee registerEmployee(
             String name,
             String emailStr,
@@ -119,6 +146,7 @@ public class UserService {
             String department,
             int seniorityYears) {
 
+        registrationPolicy.enforce(emailStr, department);
         Email email = new Email(emailStr);
         if (userRepository.findByEmail(email).isPresent()) {
             throw new ValidationException("email", "Email address is already registered: " + emailStr);
@@ -130,6 +158,7 @@ public class UserService {
         return (Employee) userRepository.save(employee);
     }
 
+    @Transactional
     public Technician createTechnician(
             User creator,
             String name,
@@ -154,6 +183,7 @@ public class UserService {
         return (Technician) userRepository.save(technician);
     }
 
+    @Transactional
     public TeamLead createTeamLead(
             User creator,
             String name,
@@ -178,6 +208,7 @@ public class UserService {
         return (TeamLead) userRepository.save(lead);
     }
 
+    @Transactional
     public Administrator createAdministrator(
             User creator,
             String name,
@@ -198,6 +229,7 @@ public class UserService {
         return (Administrator) userRepository.save(admin);
     }
 
+    @Transactional
     public Employee updateEmployeeDesignation(String employeeId, Designation newDesignation) {
         Objects.requireNonNull(employeeId, "employeeId cannot be null");
         Objects.requireNonNull(newDesignation, "newDesignation cannot be null");
@@ -220,9 +252,35 @@ public class UserService {
         return technicianRepository.findAll();
     }
 
+    /**
+     * The technicians this staff member may see in a roster (Phase M1): an administrator sees every technician; a team
+     * lead sees the members of their own support team, themselves included. A lead without a team sees nobody.
+     */
+    @Transactional(readOnly = true)
+    public List<Technician> getRosterVisibleTo(String actorId) {
+        User actor = userRepository.findById(actorId)
+                .orElseThrow(() -> new UnauthorizedOperationException("Unknown user: " + actorId));
+        if (actor instanceof Administrator) {
+            return technicianRepository.findAll();
+        }
+        if (actor instanceof TeamLead lead) {
+            String teamId = lead.getSupportTeamId();
+            return technicianRepository.findAll().stream()
+                    .filter(t -> teamId != null && teamId.equals(t.getSupportTeamId()))
+                    .toList();
+        }
+        throw new UnauthorizedOperationException("Only team leads and administrators can view the technician roster");
+    }
+
     @Transactional(readOnly = true)
     public Optional<User> findById(String id) {
         return userRepository.findById(id);
+    }
+
+    /** Display names for these user ids, in one query; ids that match no user are absent (ADR-037). */
+    @Transactional(readOnly = true)
+    public Map<String, String> namesById(Collection<String> ids) {
+        return ActorNames.of(userRepository, ids);
     }
 
     @Transactional(readOnly = true)

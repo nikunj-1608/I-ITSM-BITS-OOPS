@@ -1,0 +1,341 @@
+/* ==========================================================================
+   Nimbus FinServe :: I-ITSM  -  light / dark mode
+   Loaded by app.js (section 19). It only does something while the page has
+   data-theme="dark" on <html>; in light mode it adds nothing but the button.
+   styles.css is not edited: the dark colours override its variables and the
+   few places that use a fixed colour instead of a variable.
+   Zero external resources, CSP compliant.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. The toggle button (both modes)
+   -------------------------------------------------------------------------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.theme-toggle:hover {
+  border-color: var(--primary);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.theme-toggle-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+.theme-toggle-opt.is-active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* On the sign-in page the button floats in the top right corner. */
+.theme-toggle--floating {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 45;
+  box-shadow: var(--shadow-sm);
+}
+
+/* After sign-in it sits in the header, between the other buttons. */
+.theme-toggle--inline {
+  position: static;
+}
+
+@media (max-width: 640px) {
+  .theme-toggle-opt {
+    padding: 0.3rem 0.45rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Dark palette: the variables of styles.css
+   -------------------------------------------------------------------------- */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-base: #0b1220;
+  --bg-surface: #111a2c;
+  --bg-card: #111a2c;
+  --bg-card-hover: #1a2640;
+  --bg-card-subtle: #0f1728;
+  --bg-input: #0b1220;
+  --border: #2a3a55;
+  --border-focus: #38bdf8;
+  --border-subtle: #1e2a42;
+
+  --text-main: #e5e9f0;
+  --text-muted: #aab4c5;
+  --text-dim: #8591a6;
+
+  --primary-subtle: rgba(56, 189, 248, 0.16);
+  --warning-subtle: rgba(244, 175, 52, 0.18);
+  --warning-text: #fcd34d;
+  --danger-subtle: rgba(234, 63, 38, 0.2);
+  --danger-text: #fca5a5;
+  --success-subtle: rgba(16, 185, 129, 0.18);
+  --success-text: #6ee7b7;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   3. Dark palette: places where styles.css uses a fixed colour
+   -------------------------------------------------------------------------- */
+
+/* White surfaces */
+html[data-theme="dark"] :is(
+  .navbar, .tabs-nav, .card, .kpi-card, .step, .table-container, .modal-content,
+  .auth-card, .toast, .multiselect-menu, .suggestion-card, .team-reassign-option,
+  .sim-ff-btn, .btn-secondary, .form-input, .form-select, .form-textarea
+) {
+  background: var(--bg-card);
+}
+html[data-theme="dark"] :is(.form-input, .form-select, .form-textarea) {
+  background: var(--bg-input);
+}
+
+/* Slightly recessed surfaces */
+html[data-theme="dark"] :is(
+  .user-badge, .step-circle, .table th, .template-chip, .demo-pill
+) {
+  background: var(--bg-card-subtle);
+}
+html[data-theme="dark"] :is(
+  .sim-hud, .suggestion-term, .team-reassign-blocker, .tp-seg, .tp-pri--p4
+) {
+  background: var(--bg-card-hover);
+}
+
+/* Hover states */
+html[data-theme="dark"] :is(.nav-tab:hover, .admin-subtab:hover, .table tr:hover td, .btn-secondary:hover) {
+  background: var(--bg-card-hover);
+}
+html[data-theme="dark"] .sim-ff-btn:hover {
+  background: var(--primary-subtle);
+}
+
+/* Borders */
+html[data-theme="dark"] :is(
+  .sim-ff-btn, .btn-secondary, .step-circle, .form-input, .form-select, .form-textarea,
+  .template-chip, .demo-pill, .card:hover
+) {
+  border-color: #3a4b68;
+}
+html[data-theme="dark"] .btn-secondary:hover {
+  border-color: #5b6b86;
+}
+html[data-theme="dark"] .custom-checkbox {
+  border-color: #5b6b86;
+}
+
+/* Bars, tracks and scrollbars */
+html[data-theme="dark"] :is(.stepper::before, .capacity-bar, .td-bar, .tp-bar) {
+  background: #2a3a55;
+}
+html[data-theme="dark"] .ticket-detail-body::-webkit-scrollbar-thumb {
+  background: #3a4b68;
+}
+html[data-theme="dark"] .ticket-detail-body::-webkit-scrollbar-thumb:hover {
+  background: #5b6b86;
+}
+html[data-theme="dark"] .td-stars {
+  color: #3a4b68;
+}
+
+/* Highlighted table rows */
+html[data-theme="dark"] :is(.td-why-table tr.td-why-chosen td, .table td.cmp-best) {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+/* Dialog backdrop */
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Text colours that were chosen for a white page */
+html[data-theme="dark"] :is(.text-red, .table td.text-red) { color: #f87171; }
+html[data-theme="dark"] :is(.text-cyan, .text-blue, .table td.text-cyan) { color: #38bdf8; }
+html[data-theme="dark"] :is(.text-amber, .text-yellow) { color: #fbbf24; }
+html[data-theme="dark"] .text-emerald { color: #34d399; }
+
+/* Red badges */
+html[data-theme="dark"] :is(.badge-p1, .badge-sla-breached, .badge-tier-4, .sla-breached) {
+  background: rgba(234, 63, 38, 0.2);
+  color: #fca5a5;
+}
+/* Amber badges */
+html[data-theme="dark"] :is(
+  .badge-p2, .badge-status-assigned, .badge-status-pending-info, .badge-status-acknowledged,
+  .badge-sla-at-risk, .badge-tier-3, .sla-warning
+) {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+/* Orange badge */
+html[data-theme="dark"] .badge-sla-warning {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fdba74;
+}
+/* Blue badges */
+html[data-theme="dark"] :is(
+  .badge-p3, .badge-status-new, .badge-status-classified, .badge-status-in-progress,
+  .badge-sla-met, .badge-tier-2
+) {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+/* Grey badges */
+html[data-theme="dark"] :is(
+  .badge-p4, .badge-status-closed, .badge-sla-paused, .badge-tier-1
+) {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+  border-color: #3a4b68;
+}
+/* Green badges */
+html[data-theme="dark"] :is(
+  .badge-status-resolved, .badge-status-verified, .badge-sla-on-track, .sla-safe
+) {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+html[data-theme="dark"] .suggestion-source-kb {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(110, 231, 183, 0.35);
+}
+
+/* Alerts */
+html[data-theme="dark"] .alert-error {
+  background: rgba(234, 63, 38, 0.14);
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.4);
+}
+html[data-theme="dark"] .alert-success {
+  background: rgba(16, 185, 129, 0.14);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.4);
+}
+html[data-theme="dark"] .alert-info {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   4. Boxes that styles.css / app.js paint white with an inline style
+   Those boxes (team roster cards, queue cards, scenario cards, notification
+   cards, ...) carry style="background: #ffffff", which a stylesheet can only
+   beat with !important. In dark mode they become a soft light blue, and the
+   text, badges and bars inside get their light-mode colours back so that
+   everything stays readable on the light box.
+   -------------------------------------------------------------------------- */
+html[data-theme="dark"] [style*="background: #ffffff"] {
+  background: #dbeafe !important;
+  --bg-card: #dbeafe;
+  --bg-card-hover: #c9dcf6;
+  --bg-card-subtle: #cfe0f7;
+  --border: #93c5fd;
+  --border-subtle: #b6d0f2;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  --primary-subtle: rgba(114, 195, 232, 0.16);
+  --warning-subtle: rgba(244, 175, 52, 0.16);
+  --warning-text: #92400e;
+  --danger-subtle: rgba(234, 63, 38, 0.12);
+  --danger-text: #b91c1c;
+  --success-subtle: rgba(16, 185, 129, 0.12);
+  --success-text: #065f46;
+}
+
+/* Text colours chosen for a light page */
+html[data-theme="dark"][data-theme] [style*="background: #ffffff"] :is(.text-cyan, .text-blue) { color: #0284c7; }
+html[data-theme="dark"] [style*="background: #ffffff"] :is(.text-amber, .text-yellow) { color: #b45309; }
+html[data-theme="dark"][data-theme] [style*="background: #ffffff"] .text-red { color: #b91c1c; }
+html[data-theme="dark"] [style*="background: #ffffff"] .text-emerald { color: #059669; }
+
+/* Bars */
+html[data-theme="dark"] [style*="background: #ffffff"] .capacity-bar {
+  background: #bcd3ee;
+}
+
+/* Badges: the light-mode look */
+html[data-theme="dark"] [style*="background: #ffffff"] :is(.badge-p1, .badge-sla-breached, .badge-tier-4) {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(234, 63, 38, 0.35);
+}
+html[data-theme="dark"] [style*="background: #ffffff"] :is(
+  .badge-p2, .badge-status-assigned, .badge-status-pending-info, .badge-status-acknowledged,
+  .badge-sla-at-risk, .badge-tier-3
+) {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: rgba(244, 175, 52, 0.4);
+}
+html[data-theme="dark"] [style*="background: #ffffff"] .badge-sla-warning {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: rgba(249, 115, 22, 0.4);
+}
+html[data-theme="dark"] [style*="background: #ffffff"] :is(
+  .badge-p3, .badge-status-new, .badge-status-classified, .badge-status-in-progress,
+  .badge-sla-met, .badge-tier-2
+) {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: rgba(114, 195, 232, 0.5);
+}
+html[data-theme="dark"] [style*="background: #ffffff"] :is(
+  .badge-p4, .badge-status-closed, .badge-sla-paused, .badge-tier-1
+) {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+html[data-theme="dark"] [style*="background: #ffffff"] :is(
+  .badge-status-resolved, .badge-status-verified, .badge-sla-on-track
+) {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   5. Narrow screens: after sign-in the header is wider than the screen, so the
+   button would sit partly outside it. Below 640px it floats in the bottom left
+   corner instead (the toast messages use the bottom right).
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .theme-toggle--inline {
+    position: fixed;
+    top: auto;
+    right: auto;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 45;
+    box-shadow: var(--shadow-sm);
+  }
+}

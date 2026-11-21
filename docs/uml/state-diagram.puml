@@ -23,7 +23,7 @@ PENDING_INFO --> IN_PROGRESS : provideInfo (Resumes SLA Clock)
 
 IN_PROGRESS --> RESOLVED : resolve (Structured Resolution)
 
-RESOLVED --> IN_PROGRESS : reject (reopenCount + 1)
+RESOLVED --> IN_PROGRESS : reject (reopenCount + 1, SLA tracker reopened: resolvedAt cleared, verdict wait credited to deadline)
 RESOLVED --> VERIFIED : verify (Confirmed by Employee)
 
 VERIFIED --> CLOSED : close (Attaches Feedback)

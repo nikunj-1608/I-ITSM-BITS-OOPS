@@ -173,10 +173,10 @@ class IncidentStateTransitionTableTest {
     }
 
     @Test
-    @DisplayName("InProgressState allows requestInfo and resolve")
+    @DisplayName("InProgressState allows requestInfo, resolve and flagWrongDomain (ADR-029)")
     void testInProgressStateTransitions() {
         Incident incident = createIncidentInState(IncidentStatus.IN_PROGRESS);
-        assertThat(incident.getAllowedActions()).containsExactlyInAnyOrder("requestInfo", "resolve");
+        assertThat(incident.getAllowedActions()).containsExactlyInAnyOrder("requestInfo", "resolve", "flagWrongDomain");
 
         assertActionThrows(incident, () -> incident.acknowledge("T1", now), "acknowledge");
         assertActionThrows(incident, () -> incident.verify("E1", now), "verify");
@@ -184,6 +184,22 @@ class IncidentStateTransitionTableTest {
         // Move to PENDING_INFO
         incident.requestInfo("TECH-1", "Need more details", now);
         assertThat(incident.getStatus()).isEqualTo(IncidentStatus.PENDING_INFO);
+    }
+
+    @Test
+    @DisplayName("ADR-029: flagWrongDomain from IN_PROGRESS releases the assignee and returns to CLASSIFIED, keeping notes and the recorded response")
+    void testInProgressTicketCanBeFlaggedWrongDomain() {
+        Incident incident = createIncidentInState(IncidentStatus.IN_PROGRESS);
+        incident.addNote(new com.iitsm.domain.model.InvestigationNote("N-1", "TECH-1", "Tech", "looked at it", now, false));
+        Instant respondedAt = incident.getSlaTracker().getRespondedAt();
+
+        incident.flagWrongDomain("TECH-1", "Belongs to the database team", now);
+
+        assertThat(incident.getStatus()).isEqualTo(IncidentStatus.CLASSIFIED);
+        assertThat(incident.getAssigneeId()).isNull();
+        assertThat(incident.getNotes()).hasSize(1);
+        assertThat(incident.getSlaTracker().getRespondedAt()).isEqualTo(respondedAt);
+        assertThat(incident.getAllowedActions()).containsExactly("assign");
     }
 
     @Test

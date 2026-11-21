@@ -47,5 +47,17 @@ public class TeamLead extends Technician {
         }
         return false;
     }
+
+    /** A team lead may move the tickets of their team between the team's technicians (ADR-045). */
+    @Override
+    public boolean canReassignTeamTickets() {
+        return true;
+    }
+
+    /** A team lead may promote any resolution they can see (ADR-042); the ticket's access rules still apply. */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null;
+    }
 }
 

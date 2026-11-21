@@ -1,5 +1,6 @@
 package com.iitsm.domain.model;
 
+import com.iitsm.domain.exception.ReassignmentRequestNotPendingException;
 import com.iitsm.domain.exception.ValidationException;
 import java.time.Instant;
 import java.util.Objects;
@@ -82,16 +83,28 @@ public class ReassignmentRequest {
         return reviewedByAdminId;
     }
 
+    public boolean isPending() {
+        return status == Status.PENDING;
+    }
+
     public void approve(String adminId, Instant now) {
+        requirePending();
         this.status = Status.APPROVED;
         this.reviewedByAdminId = adminId;
         this.resolvedAt = Objects.requireNonNull(now, "resolvedAt cannot be null");
     }
 
     public void reject(String adminId, Instant now) {
+        requirePending();
         this.status = Status.REJECTED;
         this.reviewedByAdminId = adminId;
         this.resolvedAt = Objects.requireNonNull(now, "resolvedAt cannot be null");
+    }
+
+    private void requirePending() {
+        if (status != Status.PENDING) {
+            throw new ReassignmentRequestNotPendingException(id, status);
+        }
     }
 
     public static ReassignmentRequest reconstitute(

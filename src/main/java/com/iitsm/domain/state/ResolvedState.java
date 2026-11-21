@@ -10,7 +10,7 @@ import java.util.Set;
  * Represents an incident resolved by a technician and awaiting employee verification.
  * Permitted actions:
  * - verify (moves to VERIFIED)
- * - reject (reopens incident, increments reopenCount, returns to IN_PROGRESS)
+ * - reject (reopens incident, increments reopenCount, returns to IN_PROGRESS, SLA clock runs again)
  */
 public class ResolvedState implements IncidentState {
 
@@ -27,12 +27,20 @@ public class ResolvedState implements IncidentState {
     }
 
     @Override
+    public boolean allowsPriorityOverride() {
+        return false;
+    }
+
+    @Override
     public void verify(Incident incident, String employeeId, Instant now) {
         incident.transitionTo(IncidentStatus.VERIFIED);
     }
 
     @Override
     public void reject(Incident incident, String employeeId, String reason, Instant now) {
+        if (incident.getSlaTracker() != null) {
+            incident.getSlaTracker().reopen(now);
+        }
         incident.incrementReopenCount();
         incident.transitionTo(IncidentStatus.IN_PROGRESS);
     }

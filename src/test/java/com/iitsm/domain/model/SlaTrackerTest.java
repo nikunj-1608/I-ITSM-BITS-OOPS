@@ -116,4 +116,111 @@ class SlaTrackerTest {
         tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(35)));
         assertThat(tracker.getStatus()).isNotEqualTo(SlaStatus.BREACHED);
     }
+
+    // --- H4: a paused clock must not breach while waiting for the employee ---
+
+    private SlaTracker respondedTrackerPausedAt(Duration pauseOffset) {
+        SlaTracker tracker = SlaTracker.create(createdAt, p1Policy);
+        tracker.recordResponse(createdAt.plus(Duration.ofMinutes(2)));
+        tracker.pauseClock(createdAt.plus(pauseOffset));
+        return tracker;
+    }
+
+    @Test
+    @DisplayName("H4: paused ticket evaluated past the old resolution deadline is not BREACHED")
+    void pausedTicketPastOldDeadlineIsNotBreached() {
+        SlaTracker tracker = respondedTrackerPausedAt(Duration.ofMinutes(10));
+
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(45))); // old deadline was +30m
+
+        assertThat(tracker.getStatus()).isEqualTo(SlaStatus.ON_TRACK);
+    }
+
+    @Test
+    @DisplayName("H4: repeated scheduler evaluations during a long pause never produce BREACHED")
+    void repeatedEvaluationsWhilePausedNeverBreach() {
+        SlaTracker tracker = respondedTrackerPausedAt(Duration.ofMinutes(10));
+
+        for (long minutes : new long[] {31, 60, 120, 600, 1500}) {
+            tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(minutes)));
+            assertThat(tracker.getStatus()).as("after %d minutes paused", minutes).isEqualTo(SlaStatus.ON_TRACK);
+        }
+    }
+
+    @Test
+    @DisplayName("H4: status is frozen at its pre-pause value (WARNING stays WARNING)")
+    void statusFreezesAtPrePauseValue() {
+        SlaTracker tracker = SlaTracker.create(createdAt, p1Policy);
+        tracker.recordResponse(createdAt.plus(Duration.ofMinutes(2)));
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(28))); // 93% -> WARNING
+        tracker.pauseClock(createdAt.plus(Duration.ofMinutes(28)));
+
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(90)));
+
+        assertThat(tracker.getStatus()).isEqualTo(SlaStatus.WARNING);
+    }
+
+    @Test
+    @DisplayName("H4: a ticket already BREACHED when paused stays BREACHED while paused")
+    void alreadyBreachedBeforePauseStaysBreached() {
+        SlaTracker tracker = SlaTracker.create(createdAt, p1Policy);
+        tracker.recordResponse(createdAt.plus(Duration.ofMinutes(2)));
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(31)));
+        tracker.pauseClock(createdAt.plus(Duration.ofMinutes(32)));
+
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(60)));
+
+        assertThat(tracker.getStatus()).isEqualTo(SlaStatus.BREACHED);
+    }
+
+    @Test
+    @DisplayName("H4: an unanswered response target does not breach while the clock is paused")
+    void responseTargetDoesNotBreachWhilePaused() {
+        SlaTracker tracker = SlaTracker.create(createdAt, p1Policy);
+        tracker.pauseClock(createdAt.plus(Duration.ofMinutes(3))); // response due at +5m, never recorded
+
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(20)));
+
+        assertThat(tracker.getStatus()).isNotEqualTo(SlaStatus.BREACHED);
+        assertThat(tracker.isResponseOverdue(createdAt.plus(Duration.ofMinutes(20)))).isFalse();
+    }
+
+    @Test
+    @DisplayName("H4: isResponseOverdue is true for an unanswered running clock and false once responded")
+    void responseOverdueOnRunningClockOnly() {
+        SlaTracker unanswered = SlaTracker.create(createdAt, p1Policy);
+        assertThat(unanswered.isResponseOverdue(createdAt.plus(Duration.ofMinutes(4)))).isFalse();
+        assertThat(unanswered.isResponseOverdue(createdAt.plus(Duration.ofMinutes(6)))).isTrue();
+
+        unanswered.recordResponse(createdAt.plus(Duration.ofMinutes(7)));
+        assertThat(unanswered.isResponseOverdue(createdAt.plus(Duration.ofMinutes(20)))).isFalse();
+    }
+
+    @Test
+    @DisplayName("H4: risk score is frozen while paused and stays below 1.0")
+    void riskScoreIsFrozenWhilePaused() {
+        SlaTracker tracker = respondedTrackerPausedAt(Duration.ofMinutes(15)); // 50% elapsed at pause
+
+        double risk = tracker.getRiskScore(createdAt.plus(Duration.ofMinutes(90)));
+
+        assertThat(risk).isCloseTo(0.5, org.assertj.core.data.Offset.offset(0.001));
+    }
+
+    @Test
+    @DisplayName("H4: resuming after a long pause never passes through BREACHED (audit: 89,115 s pause)")
+    void resumeAfterLongPauseNeverFlipsFromBreached() {
+        SlaTracker tracker = respondedTrackerPausedAt(Duration.ofMinutes(10));
+        Instant resumeAt = createdAt.plus(Duration.ofMinutes(10)).plusSeconds(89_115);
+
+        tracker.evaluateStatus(createdAt.plus(Duration.ofMinutes(45)));
+        assertThat(tracker.getStatus()).isNotEqualTo(SlaStatus.BREACHED);
+        tracker.evaluateStatus(resumeAt.minusSeconds(1));
+        assertThat(tracker.getStatus()).isNotEqualTo(SlaStatus.BREACHED);
+
+        tracker.resumeClock(resumeAt);
+
+        assertThat(tracker.getStatus()).isEqualTo(SlaStatus.ON_TRACK);
+        assertThat(tracker.getResolutionDueAt())
+                .isEqualTo(createdAt.plus(Duration.ofMinutes(30)).plusSeconds(89_115));
+    }
 }

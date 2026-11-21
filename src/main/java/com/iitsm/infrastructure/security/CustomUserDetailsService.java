@@ -3,6 +3,7 @@ package com.iitsm.infrastructure.security;
 import com.iitsm.domain.model.Email;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.repository.UserRepository;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -17,24 +18,23 @@ import org.springframework.stereotype.Service;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final Clock clock;
 
-    public CustomUserDetailsService(UserRepository userRepository) {
+    public CustomUserDetailsService(UserRepository userRepository, Clock clock) {
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository cannot be null");
+        this.clock = Objects.requireNonNull(clock, "clock cannot be null");
     }
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         String lookupEmail = (email != null) ? email.trim() : "";
-        if ("tech.database@nimbusfinserve.com".equalsIgnoreCase(lookupEmail)) {
-            lookupEmail = "tech.db1@nimbusfinserve.com";
-        }
         User user = userRepository.findByEmail(new Email(lookupEmail))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         List<GrantedAuthority> authorities = Collections.singletonList(
                 new SimpleGrantedAuthority(user.getRole().name()));
 
-        return new IitsmUserDetails(user, authorities);
+        return new IitsmUserDetails(user, authorities, clock.instant());
     }
 }
 

@@ -1,13 +1,17 @@
 package com.iitsm.application.service;
 
 import com.iitsm.application.port.IncidentSearchPort;
+import com.iitsm.domain.exception.ValidationException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
+import com.iitsm.domain.model.SlaStatus;
+import com.iitsm.domain.model.TicketDisplayName;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,9 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchService {
 
     public record IncidentSearchCriteria(
-            IncidentStatus status,
-            Priority priority,
-            IncidentCategory category,
+            Set<IncidentStatus> statuses,
+            Set<Priority> priorities,
+            Set<IncidentCategory> categories,
+            Set<SlaStatus> slaStatuses,
             String serviceId,
             String assigneeId,
             String reporterId,
@@ -43,23 +48,33 @@ public class SearchService {
             return null;
         }
         return new IncidentSearchPort.SearchCriteria(
-                c.status(),
-                c.priority(),
-                c.category(),
+                c.statuses(),
+                c.priorities(),
+                c.categories(),
+                c.slaStatuses(),
                 c.serviceId(),
                 c.assigneeId(),
                 c.reporterId(),
-                c.query(),
+                TicketDisplayName.canonicalId(c.query()),
                 c.fromDate(),
                 c.toDate()
         );
     }
 
+    /** A creation window whose start lies after its end is a client mistake (ADR-049). */
+    private static void validateDateRange(IncidentSearchCriteria c) {
+        if (c != null && c.fromDate() != null && c.toDate() != null && c.fromDate().isAfter(c.toDate())) {
+            throw new ValidationException("fromDate", "must not be after toDate");
+        }
+    }
+
     public List<Incident> search(IncidentSearchCriteria criteria) {
+        validateDateRange(criteria);
         return incidentSearchPort.search(toPortCriteria(criteria));
     }
 
     public Page<Incident> searchPaged(IncidentSearchCriteria criteria, Pageable pageable) {
+        validateDateRange(criteria);
         return incidentSearchPort.searchPaged(toPortCriteria(criteria), pageable);
     }
 }

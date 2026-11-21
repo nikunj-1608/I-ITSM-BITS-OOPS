@@ -26,6 +26,11 @@ public class VerifiedState implements IncidentState {
     }
 
     @Override
+    public boolean allowsPriorityOverride() {
+        return false;
+    }
+
+    @Override
     public void close(Incident incident, String actorId, Feedback feedback, Instant now) {
         if (feedback != null) {
             incident.setFeedback(feedback);

@@ -125,6 +125,7 @@ To demonstrate the real-world operational separation of duties:
    - Notice that Elena sees **only** the Technician Console with her personal workload queue and capacity meter.
    - Click **Acknowledge** (state moves to `ACKNOWLEDGED`, recording response SLA) &rarr; Click **Start Investigation** (moves to `IN_PROGRESS`) &rarr; Click **Add Note** (internal diagnostics) &rarr; Click **Resolve** and submit the structured resolution (*Root cause: Stale route table; Steps: Flushed routing daemon*).
    - A walkthrough prompt confirms: *"Incident resolved! Next step: Sign out & sign in as Employee to verify."*
+   > **Technician view – solved tickets stay visible:** After resolving a ticket the card remains in Elena's queue (marked with a **RESOLVED** status badge) instead of disappearing. This is controlled by `iitsm.show-solved-tickets=true` in `application.yml` (default `true`). Set it to `false` to revert to the legacy behaviour where only active tickets are shown.
 3. **Step 3: Verification & Formal Closure**
    - Sign out and sign back in as **Vikram Malhotra** (`employee@nimbusfinserve.com`).
    - The ticket stepper shows **RESOLVED**.

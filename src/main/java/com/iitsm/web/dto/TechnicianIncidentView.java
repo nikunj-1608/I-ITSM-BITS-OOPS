@@ -14,6 +14,7 @@ import java.util.Set;
  */
 public record TechnicianIncidentView(
         String id,
+        String displayId,
         String title,
         String description,
         String reporterId,
@@ -32,7 +33,9 @@ public record TechnicianIncidentView(
         ResolutionView resolution,
         Set<String> allowedActions,
         int reopenCount,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean promotable,
+        boolean reassignable) {
 
     public record InvestigationNoteView(
             String id,
@@ -48,5 +51,6 @@ public record TechnicianIncidentView(
             String preventiveAction,
             String confirmedCategory,
             String resolvedBy,
+            String resolvedByName,
             Instant resolvedAt) {}
 }

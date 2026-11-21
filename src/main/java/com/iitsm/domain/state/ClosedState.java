@@ -22,5 +22,10 @@ public class ClosedState implements IncidentState {
     public Set<String> allowedActions() {
         return ALLOWED;
     }
+
+    @Override
+    public boolean allowsPriorityOverride() {
+        return false;
+    }
 }
 

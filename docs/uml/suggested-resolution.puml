@@ -1,0 +1,195 @@
+@startuml suggested-resolution
+' Suggested resolutions (spec feature G). Phase K1 (ADR-040): suggestions from resolved tickets.
+' Phase K2 (ADR-041): votes, bounded in the ranking. Phase K3 (ADR-042): the knowledge base as a second source.
+' Phase K4 (ADR-043): the web app; the technician view carries a server-computed 'promotable' flag.
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "web" {
+  class ResolutionSuggestionController {
+    +suggestedResolutions(id, auth) : List<SuggestedResolutionView>
+    +vote(id, SuggestionVoteRequest, auth) : SuggestionVoteView
+  }
+  class SuggestedResolutionView <<record>>
+  class SuggestionVoteRequest <<record>>
+  class SuggestionVoteView <<record>>
+  class SuggestionDtoMapper
+  class TechnicianIncidentView <<record>> {
+    promotable : boolean
+  }
+  class TechnicianController
+  class "app.js section 16" as FrontEnd <<browser>> {
+    openSuggestionsModal(incidentId)
+    castSuggestionVote(...)
+    openPromoteModal(incidentId)
+  }
+  class KnowledgeArticleController {
+    +promote(PromoteArticleRequest, auth) : KnowledgeArticleView
+  }
+  class PromoteArticleRequest <<record>>
+  class KnowledgeArticleView <<record>>
+}
+
+package "application" {
+  class ResolutionSuggestionService {
+    +suggestFor(actorId, incidentId) : List<ResolutionSuggestion>
+    +vote(actorId, incidentId, source, worked) : VoteResult
+  }
+  class KnowledgeArticleService {
+    +promote(actorId, sourceIncidentId, title) : KnowledgeArticle
+  }
+  class Incident {
+    +canBePromotedBy(user) : boolean
+  }
+  class IncidentLifecycleService {
+    +getIncident(actorId, incidentId) : Incident
+  }
+}
+
+package "domain" {
+  interface ResolutionSuggester <<Strategy>> {
+    +suggest(query, candidates, votes) : List<ResolutionSuggestion>
+  }
+  class TfIdfResolutionSuggester
+  class SuggestionPolicy <<record>> {
+    maxResults, minSimilarity, minSharedTerms
+    sameCategoryOnly, candidateWindow, maxExplanationTerms
+    +canSuggestFor(query) : boolean
+    +windowCategory(query) : IncidentCategory
+    +admitsCategory(query, candidate) : boolean
+    +accepts(similarity, sharedTerms) : boolean
+  }
+  class SuggestionQuery <<record>> {
+    +forIncident(incident) : SuggestionQuery
+    +excludes(candidate) : boolean
+  }
+  class SuggestionCandidate <<record>> {
+    +matchingText() : String
+  }
+  class ResolutionSuggestion <<record>>
+  enum SuggestionSourceType {
+    RESOLVED_TICKET
+    KB_ARTICLE
+  }
+  interface SimilarityMeasure <<Strategy>>
+  interface DomainVocabulary
+  interface ResolvedCaseRepository <<port>> {
+    +findNewestResolvedCases(category, limit) : List<SuggestionCandidate>
+    +isResolvedCase(incidentId) : boolean
+  }
+  class SuggestionSourceKey <<record>>
+  class SuggestionVote <<record>> {
+    +cast(voter, source, target, worked, now) : SuggestionVote
+    +recast(worked, now) : SuggestionVote
+  }
+  class VoteTally <<record>> {
+    +smoothedWorkedShare() : double
+  }
+  class VoteTallies
+  class VoteBand <<record>> {
+    weight
+    +factor(tally) : double
+  }
+  interface SuggestionVoteRepository <<port>> {
+    +findVote(voter, source, target) : Optional<SuggestionVote>
+    +save(vote) : SuggestionVote
+    +tallies(sources) : VoteTallies
+  }
+  class ResourceNotFoundException
+  class KnowledgeArticle {
+    id = KB- + sourceIncidentId
+    title, category, problem, rootCause
+    stepsTaken, preventiveAction, createdBy, createdAt
+    +promote(source, actor, title, redactor, now) : KnowledgeArticle
+  }
+  class PersonalDataRedactor {
+    +forReporter(user) : PersonalDataRedactor
+    +redact(text) : String
+  }
+  abstract class User {
+    +canPromoteResolution(resolution) : boolean
+  }
+  class Technician
+  class TeamLead
+  class Administrator
+  class CandidatePool {
+    +of(tickets, articles) : CandidatePool
+  }
+  interface KnowledgeArticleRepository <<port>> {
+    +save(article) : KnowledgeArticle
+    +existsBySourceIncidentId(id) : boolean
+    +findNewestArticles(category, limit) : List<SuggestionCandidate>
+  }
+  class NotResolvedException
+  class AlreadyPromotedException
+}
+
+package "infrastructure" {
+  class ResolvedCaseRepositoryAdapter <<Adapter>>
+  interface SpringDataResolvedCaseRepository
+  class ResolvedCaseRow <<record>>
+  class SuggestionVoteRepositoryAdapter <<Adapter>>
+  interface SpringDataSuggestionVoteRepository
+  class SuggestionVoteJpaEntity <<table suggestion_votes, V9>>
+  class VoteCountRow <<record>>
+  class KnowledgeArticleRepositoryAdapter <<Adapter>>
+  class KnowledgeArticleJpaEntity <<table knowledge_articles, V10>>
+  class SuggestionConfig
+}
+
+ResolutionSuggestionController --> ResolutionSuggestionService
+ResolutionSuggestionController ..> SuggestionDtoMapper
+SuggestionDtoMapper ..> SuggestedResolutionView
+ResolutionSuggestionService --> IncidentLifecycleService : access rules, 404
+ResolutionSuggestionService --> ResolvedCaseRepository : bounded window
+ResolutionSuggestionService --> ResolutionSuggester
+ResolutionSuggestionService --> SuggestionPolicy
+TfIdfResolutionSuggester ..|> ResolutionSuggester
+TfIdfResolutionSuggester --> SimilarityMeasure
+TfIdfResolutionSuggester --> DomainVocabulary
+TfIdfResolutionSuggester --> SuggestionPolicy
+ResolutionSuggester ..> SuggestionQuery
+ResolutionSuggester ..> SuggestionCandidate
+ResolutionSuggester ..> ResolutionSuggestion
+ResolutionSuggestion o-- SuggestionCandidate
+SuggestionCandidate --> SuggestionSourceType
+ResolvedCaseRepositoryAdapter ..|> ResolvedCaseRepository
+ResolvedCaseRepositoryAdapter --> SpringDataResolvedCaseRepository
+SpringDataResolvedCaseRepository ..> ResolvedCaseRow
+SuggestionConfig ..> TfIdfResolutionSuggester : creates
+SuggestionConfig ..> SuggestionPolicy : creates
+SuggestionConfig ..> VoteBand : creates
+ResolutionSuggestionService --> SuggestionVoteRepository : counts, upsert
+ResolutionSuggestionService ..> ResourceNotFoundException : unknown source
+TfIdfResolutionSuggester --> VoteBand
+ResolutionSuggester ..> VoteTallies
+VoteTallies o-- VoteTally
+ResolutionSuggestion o-- VoteTally
+SuggestionVote --> SuggestionSourceKey
+SuggestionCandidate ..> SuggestionSourceKey : key()
+SuggestionVoteRepositoryAdapter ..|> SuggestionVoteRepository
+SuggestionVoteRepositoryAdapter --> SpringDataSuggestionVoteRepository
+SpringDataSuggestionVoteRepository ..> SuggestionVoteJpaEntity
+SpringDataSuggestionVoteRepository ..> VoteCountRow
+KnowledgeArticleController --> KnowledgeArticleService
+KnowledgeArticleService --> IncidentLifecycleService : access rules, 404
+KnowledgeArticleService --> KnowledgeArticleRepository
+KnowledgeArticleService ..> KnowledgeArticle : promote
+KnowledgeArticleService ..> AlreadyPromotedException : second promotion
+KnowledgeArticle ..> PersonalDataRedactor
+KnowledgeArticle ..> User : canPromoteResolution
+KnowledgeArticle ..> NotResolvedException
+User <|-- Technician
+Technician <|-- TeamLead
+User <|-- Administrator
+ResolutionSuggestionService --> KnowledgeArticleRepository : article window, article exists
+ResolutionSuggestionService ..> CandidatePool : merge, promoted ticket once
+KnowledgeArticleRepositoryAdapter ..|> KnowledgeArticleRepository
+KnowledgeArticleRepositoryAdapter --> KnowledgeArticleJpaEntity
+TechnicianController ..> TechnicianIncidentView : maps with the viewer
+TechnicianIncidentView ..> Incident : canBePromotedBy(viewer)
+Incident ..> User : canPromoteResolution
+FrontEnd ..> ResolutionSuggestionController : GET suggestions, POST votes, on demand
+FrontEnd ..> KnowledgeArticleController : POST promote
+FrontEnd ..> TechnicianIncidentView : shows Promote only when promotable
+@enduml

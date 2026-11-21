@@ -20,7 +20,17 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, S
 
     List<UserJpaEntity> findBySupportTeamId(String supportTeamId);
 
-    @Query("SELECT u FROM UserJpaEntity u WHERE u.role IN ('ROLE_TECHNICIAN', 'ROLE_TEAM_LEAD') AND u.active = true AND u.availabilityStatus != 'OFFLINE' AND SIZE(u.activeIncidentIds) < u.maxCapacity")
+    // findAvailableTechnicians: returns all TECHNICIAN/TEAM_LEAD users who are
+    //   - active (not deactivated)
+    //   - not OFFLINE (NULL status treated as ONLINE — null-safe IS NULL OR check prevents
+    //     SQL three-valued logic from silently dropping newly-seeded technicians)
+    //   - below their maximum ticket capacity (NULL maxCapacity treated as uncapped —
+    //     prevents newly-seeded technicians with a NULL slot from being invisibly excluded)
+    @Query("SELECT u FROM UserJpaEntity u " +
+           "WHERE u.role IN ('ROLE_TECHNICIAN', 'ROLE_TEAM_LEAD') " +
+           "AND u.active = true " +
+           "AND (u.availabilityStatus IS NULL OR u.availabilityStatus != 'OFFLINE') " +
+           "AND (u.maxCapacity IS NULL OR SIZE(u.activeIncidentIds) < u.maxCapacity)")
     List<UserJpaEntity> findAvailableTechnicians();
 
     @Query("SELECT u FROM UserJpaEntity u JOIN u.skills s WHERE u.role IN ('ROLE_TECHNICIAN', 'ROLE_TEAM_LEAD') AND s.category = :category")

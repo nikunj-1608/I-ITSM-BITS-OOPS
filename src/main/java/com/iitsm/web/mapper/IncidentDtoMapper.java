@@ -1,19 +1,26 @@
 package com.iitsm.web.mapper;
 
+import com.iitsm.application.dto.AdminIncidentDetail;
+import com.iitsm.domain.event.DomainEvent;
 import com.iitsm.domain.model.AuditRecord;
 import com.iitsm.domain.model.Employee;
 import com.iitsm.domain.model.FactorContribution;
 import com.iitsm.domain.model.Incident;
+import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.SlaTracker;
+import com.iitsm.domain.model.SupportTeam;
+import com.iitsm.domain.model.TicketDisplayName;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.state.IncidentStates;
 import com.iitsm.domain.state.PublicStatusMapper;
+import com.iitsm.web.dto.AdminIncidentDetailView;
 import com.iitsm.web.dto.AdminIncidentView;
 import com.iitsm.web.dto.EmployeeIncidentView;
 import com.iitsm.web.dto.TechnicianIncidentView;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +32,69 @@ import java.util.stream.Collectors;
 public final class IncidentDtoMapper {
 
     private IncidentDtoMapper() {}
+
+    /**
+     * Audit entries an employee may see (allow-list, so a new event type is hidden until it is added
+     * here). Left out on purpose: priority calculation and override, SLA warnings and breaches, and
+     * escalations, because they reveal the ticket's priority or SLA internals. Action names are the
+     * event class names, see AuditTrailObserver.
+     */
+    private static final Set<String> EMPLOYEE_VISIBLE_AUDIT_ACTIONS = Set.of(
+            DomainEvent.IncidentCreated.class.getSimpleName(),
+            DomainEvent.IncidentClassified.class.getSimpleName(),
+            DomainEvent.DuplicateDetected.class.getSimpleName(),
+            DomainEvent.IncidentAssigned.class.getSimpleName(),
+            DomainEvent.ReassignmentRequested.class.getSimpleName(),
+            DomainEvent.IncidentAcknowledged.class.getSimpleName(),
+            DomainEvent.InvestigationStarted.class.getSimpleName(),
+            DomainEvent.MoreInfoRequested.class.getSimpleName(),
+            DomainEvent.IncidentResolved.class.getSimpleName(),
+            DomainEvent.ResolutionVerified.class.getSimpleName(),
+            DomainEvent.IncidentReopened.class.getSimpleName(),
+            DomainEvent.IncidentClosed.class.getSimpleName());
+
+    /**
+     * What an employee reads for the two history entries that used to quote internal facts (ADR-037, decision D19):
+     * the other ticket a report duplicates (its id and the similarity score) and the technician's reason for handing a
+     * ticket back. The stored text is untouched, staff still read it; the wording is applied on every render, so rows
+     * written before this change are covered too.
+     */
+    public static final String DUPLICATE_TEXT_FOR_EMPLOYEES = "Linked to an earlier report of the same problem";
+    public static final String REASSIGNMENT_TEXT_FOR_EMPLOYEES = "Passed to a better suited team";
+
+    private static String employeeText(AuditRecord record) {
+        if (DomainEvent.DuplicateDetected.class.getSimpleName().equals(record.getAction())) {
+            return DUPLICATE_TEXT_FOR_EMPLOYEES;
+        }
+        if (DomainEvent.ReassignmentRequested.class.getSimpleName().equals(record.getAction())) {
+            return REASSIGNMENT_TEXT_FOR_EMPLOYEES;
+        }
+        return record.getDescription();
+    }
+
+    private static String nameOf(Map<String, String> names, String id) {
+        return (id == null || names == null) ? null : names.get(id);
+    }
+
+    private static TechnicianIncidentView.ResolutionView resolutionView(Incident incident, Map<String, String> names) {
+        if (incident.getResolution() == null) {
+            return null;
+        }
+        return new TechnicianIncidentView.ResolutionView(
+                incident.getResolution().rootCause(),
+                incident.getResolution().stepsTaken(),
+                incident.getResolution().preventiveAction(),
+                incident.getResolution().confirmedCategory(),
+                incident.getResolution().resolvedBy(),
+                nameOf(names, incident.getResolution().resolvedBy()),
+                incident.getResolution().resolvedAt());
+    }
+
+    /** Staff-only ticket name with the current priority in front; derived on every render, never stored. */
+    private static String displayId(Incident incident) {
+        PriorityDecision decision = incident.getPriorityDecision();
+        return TicketDisplayName.of(decision != null ? decision.priority() : null, incident.getId());
+    }
 
     public static EmployeeIncidentView toEmployeeView(
             Incident incident,
@@ -58,9 +128,10 @@ public final class IncidentDtoMapper {
 
         List<EmployeeIncidentView.EmployeeAuditRecordView> safeAuditTrail = (auditRecords != null)
                 ? auditRecords.stream()
+                        .filter(r -> EMPLOYEE_VISIBLE_AUDIT_ACTIONS.contains(r.getAction()))
                         .map(r -> new EmployeeIncidentView.EmployeeAuditRecordView(
                                 r.getAction(),
-                                r.getDescription(),
+                                employeeText(r),
                                 r.getTimestamp()))
                         .collect(Collectors.toList())
                 : Collections.emptyList();
@@ -84,6 +155,17 @@ public final class IncidentDtoMapper {
     }
 
     public static TechnicianIncidentView toTechnicianView(Incident incident, User reporter, String assigneeId, String assigneeName) {
+        return toTechnicianView(incident, reporter, assigneeId, assigneeName, Map.of());
+    }
+
+    public static TechnicianIncidentView toTechnicianView(
+            Incident incident, User reporter, String assigneeId, String assigneeName, Map<String, String> actorNames) {
+        return toTechnicianView(incident, reporter, assigneeId, assigneeName, actorNames, null);
+    }
+
+    /** {@code viewer} decides {@code promotable} (ADR-043): may the person looking at the card promote its fix? */
+    public static TechnicianIncidentView toTechnicianView(Incident incident, User reporter, String assigneeId,
+            String assigneeName, Map<String, String> actorNames, User viewer) {
         if (incident == null) return null;
 
         String reporterName = (reporter != null) ? reporter.getName() : "Unknown";
@@ -101,21 +183,13 @@ public final class IncidentDtoMapper {
                         n.internalOnly()))
                 .collect(Collectors.toList());
 
-        TechnicianIncidentView.ResolutionView resView = null;
-        if (incident.getResolution() != null) {
-            resView = new TechnicianIncidentView.ResolutionView(
-                    incident.getResolution().rootCause(),
-                    incident.getResolution().stepsTaken(),
-                    incident.getResolution().preventiveAction(),
-                    incident.getResolution().confirmedCategory(),
-                    incident.getResolution().resolvedBy(),
-                    incident.getResolution().resolvedAt());
-        }
+        TechnicianIncidentView.ResolutionView resView = resolutionView(incident, actorNames);
 
         Set<String> actions = IncidentStates.of(incident.getStatus()).allowedActions();
 
         return new TechnicianIncidentView(
                 incident.getId(),
+                displayId(incident),
                 incident.getTitle(),
                 incident.getDescription(),
                 incident.getReporterId(),
@@ -134,7 +208,9 @@ public final class IncidentDtoMapper {
                 resView,
                 actions,
                 incident.getReopenCount(),
-                incident.getCreatedAt());
+                incident.getCreatedAt(),
+                incident.canBePromotedBy(viewer),
+                incident.canBeReassignedBy(viewer));
     }
 
     public static AdminIncidentView toAdminView(
@@ -142,6 +218,15 @@ public final class IncidentDtoMapper {
             User reporter,
             User assignee,
             List<AuditRecord> auditRecords) {
+        return toAdminView(incident, reporter, assignee, auditRecords, Map.of());
+    }
+
+    public static AdminIncidentView toAdminView(
+            Incident incident,
+            User reporter,
+            User assignee,
+            List<AuditRecord> auditRecords,
+            Map<String, String> actorNames) {
         if (incident == null) return null;
 
         String reporterName = (reporter != null) ? reporter.getName() : "Unknown";
@@ -168,6 +253,7 @@ public final class IncidentDtoMapper {
                     pd.rulesApplied(),
                     pd.calculatedAt(),
                     pd.overriddenBy(),
+                    nameOf(actorNames, pd.overriddenBy()),
                     pd.overrideReason());
         }
 
@@ -196,16 +282,7 @@ public final class IncidentDtoMapper {
                 .collect(Collectors.toList());
 
         // Resolution
-        TechnicianIncidentView.ResolutionView resView = null;
-        if (incident.getResolution() != null) {
-            resView = new TechnicianIncidentView.ResolutionView(
-                    incident.getResolution().rootCause(),
-                    incident.getResolution().stepsTaken(),
-                    incident.getResolution().preventiveAction(),
-                    incident.getResolution().confirmedCategory(),
-                    incident.getResolution().resolvedBy(),
-                    incident.getResolution().resolvedAt());
-        }
+        TechnicianIncidentView.ResolutionView resView = resolutionView(incident, actorNames);
 
         // Feedback
         AdminIncidentView.FeedbackView fbView = null;
@@ -223,6 +300,7 @@ public final class IncidentDtoMapper {
                                 r.getId(),
                                 r.getTimestamp(),
                                 r.getActorId(),
+                                nameOf(actorNames, r.getActorId()),
                                 r.getAction(),
                                 r.getPreviousState(),
                                 r.getNewState(),
@@ -234,6 +312,7 @@ public final class IncidentDtoMapper {
 
         return new AdminIncidentView(
                 incident.getId(),
+                displayId(incident),
                 incident.getTitle(),
                 incident.getDescription(),
                 incident.getReporterId(),
@@ -255,5 +334,50 @@ public final class IncidentDtoMapper {
                 incident.getReopenCount(),
                 incident.getCreatedAt(),
                 incident.getVersion());
+    }
+
+    /**
+     * Builds the full admin inspection view: the standard admin view plus reporter, service, support team,
+     * public status, triage flag and last-modified details.
+     */
+    public static AdminIncidentDetailView toAdminDetailView(AdminIncidentDetail detail) {
+        Incident incident = detail.incident();
+        return new AdminIncidentDetailView(
+                toAdminView(incident, detail.reporter(), detail.assignee(), detail.auditRecords(), detail.actorNames()),
+                toReporterView(detail.reporter()),
+                toServiceView(detail.service()),
+                toSupportTeamView(detail.supportTeam()),
+                PublicStatusMapper.toPublicStatus(incident.getStatus()).getDisplayName(),
+                incident.isNeedsTriage(),
+                detail.lastModifiedAt(),
+                AssignmentDecisionViewMapper.toViews(detail.assignmentDecisions(), detail.actorNames()));
+    }
+
+    private static AdminIncidentDetailView.ReporterView toReporterView(User reporter) {
+        if (reporter == null) {
+            return null;
+        }
+        Employee employee = (reporter instanceof Employee e) ? e : null;
+        return new AdminIncidentDetailView.ReporterView(
+                reporter.getId(),
+                reporter.getName(),
+                reporter.getEmail().value(),
+                (employee != null) ? employee.getDepartment() : null,
+                (employee != null && employee.getDesignation() != null) ? employee.getDesignation().getTitle() : null);
+    }
+
+    private static AdminIncidentDetailView.ServiceView toServiceView(ItService service) {
+        if (service == null) {
+            return null;
+        }
+        return new AdminIncidentDetailView.ServiceView(
+                service.getId(),
+                service.getName(),
+                service.getBusinessCriticality().name(),
+                service.getBusinessCriticality().getDescription());
+    }
+
+    private static AdminIncidentDetailView.SupportTeamView toSupportTeamView(SupportTeam team) {
+        return (team == null) ? null : new AdminIncidentDetailView.SupportTeamView(team.getId(), team.getName());
     }
 }

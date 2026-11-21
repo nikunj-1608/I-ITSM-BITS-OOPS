@@ -102,6 +102,7 @@ public final class UserMapper {
         user.setTokenVersion(entity.getTokenVersion());
         user.setLockedUntil(entity.getLockedUntil());
         user.setVersion(entity.getVersion());
+        user.restoreMfa(entity.isMfaEnabled(), entity.getMfaSecret(), entity.getMfaLastStep());
     }
 
     public static UserJpaEntity toJpaEntity(User domain) {
@@ -119,6 +120,9 @@ public final class UserMapper {
         entity.setTokenVersion(domain.getTokenVersion());
         entity.setLockedUntil(domain.getLockedUntil());
         entity.setVersion(domain.getVersion());
+        entity.setMfaEnabled(domain.isMfaEnabled());
+        entity.setMfaSecret(domain.getMfaSecret());
+        entity.setMfaLastStep(domain.getMfaLastStep());
 
         if (domain instanceof Employee emp) {
             entity.setUserType("EMPLOYEE");

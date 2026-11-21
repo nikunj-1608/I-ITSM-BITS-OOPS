@@ -31,6 +31,12 @@ public class Administrator extends User {
         return adminLevel == AdminLevel.IT_MANAGER;
     }
 
+    /** Administrators may protect their sign-in with a second step (ADR-048). */
+    @Override
+    public boolean canEnrollMfa() {
+        return true;
+    }
+
     @Override
     public boolean canViewIncident(Incident incident, String owningTeamId) {
         return true; // Global administrative visibility
@@ -39,6 +45,12 @@ public class Administrator extends User {
     @Override
     public boolean canExecuteAction(Incident incident, IncidentAction action, String owningTeamId) {
         return true; // Global administrative operational authority
+    }
+
+    /** An administrator may promote any resolution (ADR-042). */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null;
     }
 }
 

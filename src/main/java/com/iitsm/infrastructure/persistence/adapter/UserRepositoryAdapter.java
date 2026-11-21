@@ -8,6 +8,7 @@ import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.persistence.entity.UserJpaEntity;
 import com.iitsm.infrastructure.persistence.mapper.UserMapper;
 import com.iitsm.infrastructure.persistence.repository.SpringDataUserRepository;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +58,21 @@ public class UserRepositoryAdapter implements UserRepository {
             return springDataRepository.findByEmail(email.value()).map(UserMapper::toDomain);
         } catch (DataAccessException ex) {
             throw new PersistenceFailureException("Failed to find user by email: " + email, ex);
+        }
+    }
+
+    @Override
+    public List<User> findAllByIds(Collection<String> ids) {
+        Objects.requireNonNull(ids, "ids cannot be null");
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        try {
+            return springDataRepository.findAllById(ids).stream()
+                    .map(UserMapper::toDomain)
+                    .collect(Collectors.toList());
+        } catch (DataAccessException ex) {
+            throw new PersistenceFailureException("Failed to find users by IDs", ex);
         }
     }
 

@@ -1,0 +1,51 @@
+# Everyday tickets (ADR-052, Phase 1, 2026-11-21): short, plain-language reports as employees actually type them.
+# expected = the category the ticket should get, or TRIAGE when it is not an IT incident or too vague to route.
+# CATEGORY|TRIAGE accepts that category or any ticket that ends in triage (a mixed-signal ticket a human should look at).
+# Success for a labelled category is measured by team: the ticket is auto-routed to the team that handles the expected
+# category (the team is decided by the classified category, ADR-036; e.g. SOFTWARE and APPLICATION share a team).
+# "live 2026-11-21" rows were raised through the employee API of the running application on 2026-11-21 (25 tickets,
+# 8 of them stayed unassigned in triage; E37 was refused there for its 4-character title "Help"); "control" rows were written for this file. Labels were written from the text,
+# not from what the classifier answers, so a row may fail on purpose until the fix phases land.
+id	expected	title	description	source
+E01	HARDWARE	Printer not working	The office printer on floor 3 does not print my documents.	live 2026-11-21
+E02	HARDWARE	Printer jammed	The printer has a paper jam and shows an error.	live 2026-11-21
+E03	HARDWARE	Laptop screen flickering	The laptop display flickers and goes black randomly.	live 2026-11-21
+E04	HARDWARE	Keyboard not working	My keyboard stopped typing.	live 2026-11-21
+E05	HARDWARE	Monitor no signal	Second monitor shows no signal.	live 2026-11-21
+E06	HARDWARE	Mouse broken	My mouse does not move the cursor.	live 2026-11-21
+E07	HARDWARE	Laptop very slow	My laptop is extremely slow and takes ages to boot.	live 2026-11-21
+E08	HARDWARE	Webcam not detected	My webcam is not detected in video meetings.	control
+E09	HARDWARE	Charger stopped working	My laptop charger stopped working and the battery is almost empty.	control
+E10	NETWORK	VPN keeps dropping	My VPN connection disconnects every few minutes when working from home.	live 2026-11-21
+E11	NETWORK	Wifi not working	I cannot connect to the office wifi on my laptop.	live 2026-11-21
+E12	NETWORK	Internet is down	No internet access at my desk since 10am.	live 2026-11-21
+E13	NETWORK	Server unreachable	The build server is unreachable from my machine.	live 2026-11-21
+E14	NETWORK	No network at my desk	The network cable at my desk gives no connection to the office network.	control
+E15	SOFTWARE	Outlook not opening	Outlook crashes every time I open it.	live 2026-11-21
+E16	SOFTWARE	Excel keeps crashing	Excel freezes and crashes when I open large files.	live 2026-11-21
+E17	SOFTWARE	Teams calls dropping	Microsoft Teams calls keep disconnecting.	live 2026-11-21
+E18	SOFTWARE	Need software installed	Please install Python on my machine.	live 2026-11-21
+E19	SOFTWARE	Email not sending	My emails are stuck in the outbox.	live 2026-11-21
+E20	SOFTWARE	Chrome will not update	Google Chrome shows an error every time it tries to update.	control
+E21	AUTHENTICATION	Cannot log in to my account	My password is not accepted and I cannot sign in to Outlook since this morning.	live 2026-11-21
+E22	AUTHENTICATION	Forgot my password	I forgot my password and need a reset.	live 2026-11-21
+E23	AUTHENTICATION	Account locked	My account got locked after a few attempts.	live 2026-11-21
+E24	AUTHENTICATION	MFA code not arriving	The MFA code for signing in never arrives on my phone.	control
+E25	SECURITY	Suspicious email received	I received a phishing email asking for my credentials with a strange link.	live 2026-11-21
+E26	SECURITY|TRIAGE	Clicked a link in a fake email	I clicked a link in an email that looked fake and typed my password on the page.	control
+E27	SECURITY	Antivirus found a virus	My antivirus says it found a virus on my laptop and quarantined a file.	control
+E28	DATABASE	Database query very slow	The reporting database queries take minutes to run and time out.	live 2026-11-21
+E29	DATABASE	Report fails with database error	The monthly report fails with a database error when I run it.	control
+E30	STORAGE	Cannot access shared drive	I get access denied on the finance shared folder.	live 2026-11-21
+E31	STORAGE	Restore a deleted file	I deleted a file on the shared drive by mistake, please restore it from the backup.	control
+E32	CLOUD	AWS console access	I cannot open the AWS console, it says unauthorized.	live 2026-11-21
+E33	CLOUD	Azure VM not starting	Our Azure virtual machine for testing does not start.	control
+E34	APPLICATION	Website down	The customer portal website returns an error 500.	live 2026-11-21
+E35	APPLICATION	Payment app error	The payment application shows an error when submitting.	live 2026-11-21
+E36	APPLICATION	Payroll portal shows wrong salary	The payroll portal shows last month's salary on my payslip page.	control
+E37	TRIAGE	Something is broken	Something is broken please help.	live 2026-11-21 (title lengthened: "Help" is under the 5-character minimum)
+E38	TRIAGE	Kitchen tap leaking	The tap in the floor 2 kitchen is leaking water.	control (not IT)
+E39	TRIAGE	Air conditioning too cold	The air conditioning in meeting room 4 is far too cold.	control (not IT)
+E40	TRIAGE	Question about my leave	How many leave days do I have left this year?	control (not IT)
+E41	TRIAGE	It does not work	It does not work since yesterday.	control (vague)
+E42	TRIAGE	Office chair broken	My office chair is broken and wobbles when I sit down.	control (not IT)

@@ -43,6 +43,9 @@ public class SlaTrackerJpaEntity {
     @Column(name = "paused_duration_seconds", nullable = false)
     private long pausedDurationSeconds;
 
+    @Column(name = "credited_duration_seconds", nullable = false)
+    private long creditedDurationSeconds;
+
     @Column(name = "paused_at")
     private Instant pausedAt;
 
@@ -75,6 +78,9 @@ public class SlaTrackerJpaEntity {
 
     public long getPausedDurationSeconds() { return pausedDurationSeconds; }
     public void setPausedDurationSeconds(long pausedDurationSeconds) { this.pausedDurationSeconds = pausedDurationSeconds; }
+
+    public long getCreditedDurationSeconds() { return creditedDurationSeconds; }
+    public void setCreditedDurationSeconds(long creditedDurationSeconds) { this.creditedDurationSeconds = creditedDurationSeconds; }
 
     public Instant getPausedAt() { return pausedAt; }
     public void setPausedAt(Instant pausedAt) { this.pausedAt = pausedAt; }

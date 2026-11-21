@@ -1,0 +1,45 @@
+@startuml everyday-ticket-classification
+title Intake classification of an everyday ticket (ADR-052)
+
+participant "IncidentIntakePipeline" as P
+participant "CompositeClassifier" as C
+participant "KeywordClassifier" as K
+participant "NaiveBayesClassifier" as N
+participant "ServiceMatcher" as S
+participant "ServiceCorroboration" as SC
+participant "TicketRouter" as R
+
+P -> C : classify(title, description)
+C -> K : classify (distinct terms, pair terms, tie, security flag)
+K --> C : category, support per category
+alt keywords confident (>= 0.85) and no security term for another category
+  C --> P : keyword result
+else
+  C -> N : classify
+  N --> C : category, confidence
+  note over C
+    1. title-led tie: Naive Bayes may not break a tie against the title
+    2. decisive keywords (>= 2 terms, clear lead) beat an unsupported Naive Bayes answer
+    3. a capped ticket keeps the keyword label when no keyword supports Naive Bayes
+    4. otherwise the ADR-034 caps (0.55) apply; a security term caps a ticket another category wins
+  end note
+  C --> P : result (carries keyword support and security flag)
+end
+P -> S : findBestMatch(title, description, services)
+S --> P : matched IT service (or none)
+P -> R : owningTeamId(category, null)
+R --> P : team that handles the category
+P -> SC : apply(result, service, team)
+note right of SC
+  lifts a capped ticket to exactly 0.60 only if
+  a keyword supports the category AND the service
+  (not the general one) is owned by that team AND
+  there is no security indicator
+end note
+SC --> P : result
+alt confidence >= 0.60
+  P -> P : save, then assign (TicketDispatchService)
+else
+  P -> P : needsTriage, administrator decides
+end
+@enduml

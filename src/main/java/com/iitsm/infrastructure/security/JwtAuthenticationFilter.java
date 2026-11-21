@@ -1,11 +1,14 @@
 package com.iitsm.infrastructure.security;
 
+import com.iitsm.domain.repository.RefreshTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,10 +23,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final UserDetailsService userDetailsService;
+    private final RefreshTokenRepository refreshTokens;
+    private final Clock wallClock;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(
+            JwtTokenProvider tokenProvider,
+            UserDetailsService userDetailsService,
+            RefreshTokenRepository refreshTokens,
+            @Qualifier("wallClock") Clock wallClock) {
         this.tokenProvider = Objects.requireNonNull(tokenProvider, "tokenProvider cannot be null");
         this.userDetailsService = Objects.requireNonNull(userDetailsService, "userDetailsService cannot be null");
+        this.refreshTokens = Objects.requireNonNull(refreshTokens, "refreshTokens cannot be null");
+        this.wallClock = Objects.requireNonNull(wallClock, "wallClock cannot be null");
     }
 
     @Override
@@ -37,6 +48,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(jwt)) {
             try {
                 if (tokenProvider.validateToken(jwt)) {
+                    // ADR-048: the token that proves the password step of a two-step sign-in is no credential
+                    if (tokenProvider.isMfaChallenge(jwt)) {
+                        SecurityContextHolder.clearContext();
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"errorCode\":\"ERR_UNAUTHORIZED\",\"message\":\"Invalid or expired token\"}");
+                        return;
+                    }
                     String email = tokenProvider.getEmailFromToken(jwt);
                     UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
@@ -57,6 +76,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             response.getWriter().write("{\"errorCode\":\"ERR_UNAUTHORIZED\",\"message\":\"Session revoked or expired\"}");
                             return;
                         }
+                    }
+
+                    // ADR-047: a token issued for a session dies with it (sign-out, replay, expiry of the session).
+                    String sessionId = tokenProvider.getSessionId(jwt);
+                    if (sessionId != null && !refreshTokens.isFamilyActive(sessionId, wallClock.instant())) {
+                        SecurityContextHolder.clearContext();
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"errorCode\":\"ERR_UNAUTHORIZED\",\"message\":\"Session revoked or expired\"}");
+                        return;
                     }
 
                     UsernamePasswordAuthenticationToken authentication =

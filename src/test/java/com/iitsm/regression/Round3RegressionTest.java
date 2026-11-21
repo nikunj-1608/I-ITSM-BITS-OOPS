@@ -351,7 +351,7 @@ public class Round3RegressionTest {
         mockMvc.perform(post("/api/admin/triage/" + lowConf.getId() + "/accept-suggestion")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"category\":\"NETWORK\",\"serviceId\":\"SRV-NET-001\"}"))
+                        .content("{\"category\":\"NETWORK\",\"serviceId\":\"SVC-VPN\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ASSIGNED"))
                 .andExpect(jsonPath("$.assigneeId").isNotEmpty());
@@ -378,9 +378,12 @@ public class Round3RegressionTest {
         List<Incident> techQueue = incidentService.getTechnicianQueue(inc.getAssigneeId());
         assertThat(techQueue).extracting(Incident::getId).contains(inc.getId());
 
-        // The ticket also appears in the team queue for any network technician
-        List<Incident> teamQueue = incidentService.getTeamQueue("tech.network@nimbusfinserve.com");
-        assertThat(teamQueue).extracting(Incident::getId).contains(inc.getId());
+        // The ticket appears in the team view of its assignee and of the network team lead (ADR-032: a technician no
+        // longer sees a colleague's ticket there)
+        String assigneeEmail = userRepository.findById(inc.getAssigneeId()).orElseThrow().getEmail().value();
+        assertThat(incidentService.getTeamQueue(assigneeEmail)).extracting(Incident::getId).contains(inc.getId());
+        assertThat(incidentService.getTeamQueue("lead.network@nimbusfinserve.com"))
+                .extracting(Incident::getId).contains(inc.getId());
     }
 
     @Test

@@ -35,6 +35,12 @@ public class NotificationObserver implements DomainEventListener {
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
     }
 
+    /** Notifications describe committed changes only (ADR-017): never send one for a transaction that rolls back. */
+    @Override
+    public boolean deferUntilCommit() {
+        return true;
+    }
+
     @Override
     public void onEvent(DomainEvent event) {
         Objects.requireNonNull(event, "event cannot be null");

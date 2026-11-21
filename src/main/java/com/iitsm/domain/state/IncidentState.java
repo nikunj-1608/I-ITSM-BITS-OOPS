@@ -69,5 +69,13 @@ public interface IncidentState {
     default void flagWrongDomain(Incident incident, String technicianId, String reason, Instant now) {
         throw new InvalidStateTransitionException(getStatus(), "flagWrongDomain", allowedActions());
     }
+
+    /**
+     * Whether an administrator may override the ticket's priority in this state (ADR-028). True while the ticket is
+     * open; false once it is resolved, because its SLA verdict is final and a new priority could no longer change it.
+     */
+    default boolean allowsPriorityOverride() {
+        return true;
+    }
 }
 

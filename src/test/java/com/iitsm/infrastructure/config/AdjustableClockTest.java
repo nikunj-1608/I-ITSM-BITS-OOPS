@@ -3,6 +3,7 @@ package com.iitsm.infrastructure.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.iitsm.domain.exception.ValidationException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -57,12 +58,25 @@ class AdjustableClockTest {
     }
 
     @Test
-    @DisplayName("Throws exception on non-positive multiplier")
+    @DisplayName("A non-positive multiplier is a validation error (HTTP 400), and the speed is unchanged")
     void testInvalidMultiplier() {
-        assertThatThrownBy(() -> clock.setSpeedMultiplier(0))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> clock.setSpeedMultiplier(-10))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> clock.setSpeedMultiplier(0)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> clock.setSpeedMultiplier(-10)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("multiplier");
+        assertThat(clock.getSpeedMultiplier()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("M8: fastForward refuses zero and negative durations, so the clock only moves forward through it")
+    void testFastForwardOnlyMovesForward() {
+        Instant before = clock.instant();
+
+        assertThatThrownBy(() -> clock.fastForward(Duration.ofMinutes(-30)))
+                .isInstanceOf(ValidationException.class).hasMessageContaining("duration");
+        assertThatThrownBy(() -> clock.fastForward(Duration.ZERO)).isInstanceOf(ValidationException.class);
+
+        assertThat(clock.instant()).as("a refused advance must not move the clock at all")
+                .isBetween(before, before.plusSeconds(5));
     }
 
     @Test

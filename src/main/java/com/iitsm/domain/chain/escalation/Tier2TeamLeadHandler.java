@@ -28,8 +28,7 @@ public class Tier2TeamLeadHandler extends AbstractEscalationHandler {
             }
 
             // Missed initial response target without acknowledgment
-            if (incident.getSlaTracker().getRespondedAt() == null
-                    && context.currentInstant().isAfter(incident.getSlaTracker().getResponseDueAt())) {
+            if (incident.getSlaTracker().isResponseOverdue(context.currentInstant())) {
                 return Optional.of(new EscalationAction(
                         2,
                         "TEAM_LEAD_INTERVENTION",

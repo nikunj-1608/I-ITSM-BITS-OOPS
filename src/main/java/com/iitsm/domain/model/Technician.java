@@ -174,5 +174,11 @@ public class Technician extends User {
                 || action == IncidentAction.FLAG_WRONG_DOMAIN
                 || action == IncidentAction.REASSIGN;
     }
+
+    /** A technician may promote a fix they resolved themselves (ADR-042). */
+    @Override
+    public boolean canPromoteResolution(Resolution resolution) {
+        return resolution != null && getId().equals(resolution.resolvedBy());
+    }
 }
 

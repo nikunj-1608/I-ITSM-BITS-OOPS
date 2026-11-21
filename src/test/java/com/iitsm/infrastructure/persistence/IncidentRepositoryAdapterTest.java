@@ -15,12 +15,14 @@ import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.model.SlaPolicy;
 import com.iitsm.domain.repository.IncidentRepository;
+import com.iitsm.domain.repository.UserRepository;
 import com.iitsm.infrastructure.persistence.adapter.IncidentRepositoryAdapter;
 import com.iitsm.infrastructure.persistence.entity.IncidentJpaEntity;
 import com.iitsm.infrastructure.persistence.repository.SpringDataIncidentRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +39,24 @@ class IncidentRepositoryAdapterTest {
 
     @Autowired
     private SpringDataIncidentRepository springDataRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private CompanySeeder companySeeder;
+
+    /**
+     * The tickets below reference the seeded reporter EMP-DEMO-01 and service SVC-PAYMENT (foreign keys). The test
+     * profile does not auto-seed, so without this the class only passed when another class had seeded the shared
+     * database first (stress-audit item P5, Phase A).
+     */
+    @BeforeEach
+    void seedReferenceData() {
+        if (userRepository.count() == 0) {
+            companySeeder.seedCompanyData();
+        }
+    }
 
     @Test
     @Transactional
@@ -101,7 +121,7 @@ class IncidentRepositoryAdapterTest {
         Incident staleIncident = com.iitsm.infrastructure.persistence.mapper.IncidentMapper.toDomain(entity2);
 
         assertThatThrownBy(() -> incidentRepository.save(staleIncident))
-                .isInstanceOf(java.util.ConcurrentModificationException.class);
+                .isInstanceOf(com.iitsm.domain.exception.ConcurrentUpdateException.class);
     }
 }
 
