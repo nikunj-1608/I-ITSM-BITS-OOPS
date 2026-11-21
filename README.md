@@ -356,5 +356,3 @@ Start with **[docs/03-architecture.md](docs/03-architecture.md)** for the big pi
 | Test cases | [docs/testing/test-cases.md](docs/testing/test-cases.md) |
 | Database schema | [docs/db/schema.md](docs/db/schema.md) |
 | Diagrams | [docs/uml/](docs/uml/) |
-
-Contributors and AI assistants: the detailed engineering rules live in [CLAUDE.md](CLAUDE.md).
