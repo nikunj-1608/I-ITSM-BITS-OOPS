@@ -1,4 +1,4 @@
-# Intelligent IT Service Management (I-ITSM)
+﻿# Intelligent IT Service Management (I-ITSM)
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-blue.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -32,10 +32,10 @@
    - Sliding-window Cosine TF-IDF similarity correlation linking duplicate storm incidents to root cluster parents.
 4. **Time-Accelerated Simulation Engine (`AdjustableClock`)**:
    - Zero `Thread.sleep()` calls; runs hours of SLA degradation and multi-tier escalations in milliseconds.
-   - Pre-scripted canonical scenarios (S1–S5) demonstrating the full lifecycle, P1 outages, wrong-domain triage loops, duplicate storms, and clock pauses.
+   - Pre-scripted canonical scenarios (S1ΓÇôS5) demonstrating the full lifecycle, P1 outages, wrong-domain triage loops, duplicate storms, and clock pauses.
 5. **Strict Role-Isolated Enterprise UI/UX**:
    - Persona isolation: Employees see only their self-service portal; technicians see only their assigned workload; administrators see command centre and unified triage.
-   - Priority ranks (P1–P4), SLA targets/deadlines, and internal technician investigation notes are strictly hidden from employees at the DTO type level (`EmployeeIncidentView`).
+   - Priority ranks (P1ΓÇôP4), SLA targets/deadlines, and internal technician investigation notes are strictly hidden from employees at the DTO type level (`EmployeeIncidentView`).
 6. **Embedded Single-Page Web Console**:
    - Modern, responsive SPA served directly by Spring Boot at `http://localhost:8085/` with zero Node.js/npm runtime prerequisites and full offline compatibility (zero external CDN scripts, compliant with strict CSP `script-src 'self'`).
 
@@ -52,15 +52,15 @@ In financial services, minute-by-minute system downtime translates directly to f
 ```
                             Victoria Sterling
                         (Chief Executive Officer)
-                                   │
+                                   Γöé
                             Alexander Vance
                     (Chief IT Infrastructure Admin)
-                                   │
-      ┌───────────────────┬────────┴──────────┬───────────────────┐
-      │                   │                   │                   │
+                                   Γöé
+      ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö┤ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+      Γöé                   Γöé                   Γöé                   Γöé
 Network Operations  Core Banking DB    Cybersecurity      Workplace & Floor
    (TEAM-NET)          (TEAM-DB)          (TEAM-SEC)          (TEAM-DESK)
-      │                   │                   │                   │
+      Γöé                   Γöé                   Γöé                   Γöé
 Lead: Sarah Jenkins  Michael Chang      Hannah Fischer      Amanda Brooks
 Tech: Elena Rostova  Priya Patel        Carlos Mendez       Jordan Bell
       (VPN Specialist) (Lead DBA)       (SecOps Engineer)   (Floor Specialist)
@@ -83,14 +83,14 @@ Tech: David Kim
 
 ### 2.3 IT Service Catalog & Infrastructure Criticality Tiers
 
-Ticket priority (P1–P4) is derived dynamically from the IT service's criticality tier, reporter designation weight, and historical failure frequency:
+Ticket priority (P1ΓÇôP4) is derived dynamically from the IT service's criticality tier, reporter designation weight, and historical failure frequency:
 
 | Criticality Tier | Impact Level | IT Service & Key Description | Default Priority & SLA Target | Financial & Infrastructure Impact Rationale |
 | :---: | :---: | :--- | :---: | :--- |
-| **Tier 4** | **Mission Critical** | `SVC-PAYMENT` Payment Gateway<br>`SVC-CORE-DB` Core Banking DB<br>`SVC-SSO` SSO & Identity Provider | **P1 (Critical)**<br>• Response: 15 min<br>• Resolve: 1 hour | **Direct Financial Outage**: Halts credit card settlements and ledger transactions. Revenue loss: up to \$200,000/hr. Triggers instant SMS + Email escalation. |
-| **Tier 3** | **Business Operational** | `SVC-VPN` Corporate VPN Gateways<br>`SVC-CRM` Customer Support CRM<br>`SVC-EMAIL` Corporate Email & Calendar<br>`SVC-DWH` Data Warehouse Analytics | **P2 (High)**<br>• Response: 30 min<br>• Resolve: 4 hours | **Business Impairment**: Blocks remote trading desks and intraday risk/compliance pipelines. |
-| **Tier 2** | **Departmental** | `SVC-WIFI` Office HQ Wi-Fi<br>`SVC-CICD` CI/CD Engineering Pipeline<br>`SVC-HRMS` HR & Payroll Portal | **P3 (Moderate)**<br>• Response: 1 hour<br>• Resolve: 8 hours | **Operational Degradation**: Internal productivity degradation with manual operational workarounds. |
-| **Tier 1** | **Internal Support** | `SVC-PRINT` Office Printing<br>`SVC-HARDWARE` Laptop & Peripherals<br>`SVC-WIKI` Intranet Confluence Wiki<br>`SRV-GEN-001` General IT / Helpdesk | **P4 (Minor)**<br>• Response: 4 hours<br>• Resolve: 24 hours | **Routine Requests**: Localized peripheral issues without enterprise infrastructure risk. |
+| **Tier 4** | **Mission Critical** | `SVC-PAYMENT` Payment Gateway<br>`SVC-CORE-DB` Core Banking DB<br>`SVC-SSO` SSO & Identity Provider | **P1 (Critical)**<br>ΓÇó Response: 15 min<br>ΓÇó Resolve: 1 hour | **Direct Financial Outage**: Halts credit card settlements and ledger transactions. Revenue loss: up to \$200,000/hr. Triggers instant SMS + Email escalation. |
+| **Tier 3** | **Business Operational** | `SVC-VPN` Corporate VPN Gateways<br>`SVC-CRM` Customer Support CRM<br>`SVC-EMAIL` Corporate Email & Calendar<br>`SVC-DWH` Data Warehouse Analytics | **P2 (High)**<br>ΓÇó Response: 30 min<br>ΓÇó Resolve: 4 hours | **Business Impairment**: Blocks remote trading desks and intraday risk/compliance pipelines. |
+| **Tier 2** | **Departmental** | `SVC-WIFI` Office HQ Wi-Fi<br>`SVC-CICD` CI/CD Engineering Pipeline<br>`SVC-HRMS` HR & Payroll Portal | **P3 (Moderate)**<br>ΓÇó Response: 1 hour<br>ΓÇó Resolve: 8 hours | **Operational Degradation**: Internal productivity degradation with manual operational workarounds. |
+| **Tier 1** | **Internal Support** | `SVC-PRINT` Office Printing<br>`SVC-HARDWARE` Laptop & Peripherals<br>`SVC-WIKI` Intranet Confluence Wiki<br>`SRV-GEN-001` General IT / Helpdesk | **P4 (Minor)**<br>ΓÇó Response: 4 hours<br>ΓÇó Resolve: 24 hours | **Routine Requests**: Localized peripheral issues without enterprise infrastructure risk. |
 
 ---
 
@@ -117,7 +117,7 @@ To demonstrate the real-world operational separation of duties:
 1. **Step 1: Employee Incident Intake**
    - Open [http://localhost:8085/](http://localhost:8085/) and sign in as **Vikram Malhotra** (`employee@nimbusfinserve.com`) or **Victoria Sterling** (`ceo@nimbusfinserve.com`).
    - Notice that **only** the Employee Self-Service Portal is visible in the top navigation.
-   - Click template **"🌐 VPN Outage &rarr; Elena Rostova"** (or submit: *"VPN tunnel drops during institutional block trade"*).
+   - Click template **"≡ƒîÉ VPN Outage &rarr; Elena Rostova"** (or submit: *"VPN tunnel drops during institutional block trade"*).
    - The NLP classifier identifies `NETWORK` category and routes to domain specialist **Elena Rostova** (VPN Gateways).
    - An on-screen prompt displays the assigned domain specialist and provides a one-click button: **[Sign Out & Switch to Elena Rostova]**.
 2. **Step 2: Specialist Technical Handling**
@@ -125,6 +125,7 @@ To demonstrate the real-world operational separation of duties:
    - Notice that Elena sees **only** the Technician Console with her personal workload queue and capacity meter.
    - Click **Acknowledge** (state moves to `ACKNOWLEDGED`, recording response SLA) &rarr; Click **Start Investigation** (moves to `IN_PROGRESS`) &rarr; Click **Add Note** (internal diagnostics) &rarr; Click **Resolve** and submit the structured resolution (*Root cause: Stale route table; Steps: Flushed routing daemon*).
    - A walkthrough prompt confirms: *"Incident resolved! Next step: Sign out & sign in as Employee to verify."*
+   > **Technician view ΓÇô solved tickets stay visible:** After resolving a ticket the card remains in Elena's queue (marked with a **RESOLVED** status badge) instead of disappearing. This is controlled by `iitsm.show-solved-tickets=true` in `application.yml` (default `true`). Set it to `false` to revert to the legacy behaviour where only active tickets are shown.
 3. **Step 3: Verification & Formal Closure**
    - Sign out and sign back in as **Vikram Malhotra** (`employee@nimbusfinserve.com`).
    - The ticket stepper shows **RESOLVED**.
@@ -188,9 +189,9 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
 ```
 
 Once started:
-- 🌐 **Web Application**: Open [http://localhost:8085/](http://localhost:8085/)
-- 📖 **Interactive Swagger UI**: [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
-- 📊 **Actuator Health**: [http://localhost:8085/actuator/health](http://localhost:8085/actuator/health)
+- ≡ƒîÉ **Web Application**: Open [http://localhost:8085/](http://localhost:8085/)
+- ≡ƒôû **Interactive Swagger UI**: [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
+- ≡ƒôè **Actuator Health**: [http://localhost:8085/actuator/health](http://localhost:8085/actuator/health)
 
 ### Running with Docker Compose (PostgreSQL 16 + Mailpit)
 ```bash
@@ -226,7 +227,7 @@ $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
 
 ---
 
-## 8. Canonical Simulation Scenarios (S1–S5)
+## 8. Canonical Simulation Scenarios (S1ΓÇôS5)
 
 The platform provides 5 automated scenarios that can be executed directly from the Web Console (Simulation Engine tab) or via REST API:
 
