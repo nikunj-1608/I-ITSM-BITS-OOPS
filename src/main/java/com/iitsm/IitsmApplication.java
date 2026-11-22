@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * Main application entrypoint for the IT Service Management System (Swiftdesk).
  */
+//we have majorly used the concepts of oops like encapsulation,inheritance,abstraction and polymorphism
 @SpringBootApplication
 @EnableScheduling
 public class IitsmApplication {
