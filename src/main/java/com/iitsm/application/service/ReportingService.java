@@ -176,6 +176,7 @@ public class ReportingService {
         long warningCount = 0;
         long atRiskCount = 0;
 
+        // Collections: EnumMap keyed by Priority keeps the report in P1..P4 order with no sorting.
         Map<Priority, Long> metByPriority = new EnumMap<>(Priority.class);
         Map<Priority, Long> breachedByPriority = new EnumMap<>(Priority.class);
 

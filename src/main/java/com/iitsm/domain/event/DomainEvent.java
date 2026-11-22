@@ -7,9 +7,10 @@ import com.iitsm.domain.model.PriorityDecision;
 import com.iitsm.domain.model.Resolution;
 import java.time.Instant;
 
+// OOP (Sealed interface + records): the compiler knows every permitted event type, so a switch over events can be checked for completeness.
 /**
  * Pattern: Domain Event / Observer.
- * Sealed interface defining all strongly-typed domain events in the I-ITSM event-driven spine.
+ * Sealed interface defining all strongly-typed domain events in the Swiftdesk event-driven spine.
  */
 public sealed interface DomainEvent {
 

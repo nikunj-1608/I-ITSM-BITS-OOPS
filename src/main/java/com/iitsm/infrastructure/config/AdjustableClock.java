@@ -1,5 +1,6 @@
 package com.iitsm.infrastructure.config;
 
+import com.iitsm.domain.exception.ValidationException;
 import java.io.Serializable;
 import java.time.Clock;
 import java.time.Duration;
@@ -9,6 +10,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+// OOP (Inheritance + Time abstraction): extends java.time.Clock, so all code that takes a Clock can run on simulated time.
 /**
  * Pattern: Decorator / Virtual Clock.
  * Wraps a base java.time.Clock, allowing dynamic time acceleration (x1, x60, x600)
@@ -65,6 +67,9 @@ public class AdjustableClock extends Clock implements Serializable {
      */
     public synchronized void fastForward(Duration duration) {
         Objects.requireNonNull(duration, "duration cannot be null");
+        if (duration.isNegative() || duration.isZero()) {
+            throw new ValidationException("duration", "must be positive, because the clock only moves forward: " + duration);
+        }
         Instant current = instant();
         baseInstant.set(current.plus(duration));
         baseSystemNanos.set(System.nanoTime());
@@ -84,7 +89,7 @@ public class AdjustableClock extends Clock implements Serializable {
      */
     public synchronized void setSpeedMultiplier(long multiplier) {
         if (multiplier <= 0) {
-            throw new IllegalArgumentException("Speed multiplier must be positive: " + multiplier);
+            throw new ValidationException("multiplier", "must be positive: " + multiplier);
         }
         Instant current = instant();
         baseInstant.set(current);

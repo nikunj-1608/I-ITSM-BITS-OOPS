@@ -4,6 +4,7 @@ import com.iitsm.domain.model.ItService;
 import com.iitsm.infrastructure.persistence.entity.ItServiceJpaEntity;
 import java.util.HashSet;
 
+// OOP (Single responsibility): ItServiceMapper only converts between domain objects and entities; it holds no business rule.
 public final class ItServiceMapper {
 
     private ItServiceMapper() {}

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.iitsm.domain.exception.ValidationException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,19 +102,18 @@ class IncidentEncapsulationTest {
     }
 
     @Test
-    @DisplayName("Security: HTML tags in title and description are escaped")
-    void testHtmlSanitization() {
-        String rawTitle = "VPN <script>alert('xss')</script> down";
+    @DisplayName("Text is stored verbatim; escaping is an output concern (no re-escaping on save/load)")
+    void testTextStoredVerbatim() {
+        String rawTitle = "R&D VPN <script>alert('xss')</script> down";
         String rawDesc = "User clicked on <a href='http://evil.com'>link</a> & got 500 error.";
 
         Incident incident = new Incident("INC-1", rawTitle, rawDesc, "EMP-1", now);
 
-        assertThat(incident.getTitle()).doesNotContain("<script>");
-        assertThat(incident.getTitle()).contains("&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;");
-
-        assertThat(incident.getDescription()).doesNotContain("<a href=");
-        assertThat(incident.getDescription()).contains("&lt;a href=&#x27;http://evil.com&#x27;&gt;");
-        assertThat(incident.getDescription()).contains("&amp;");
+        assertThat(incident.getTitle()).isEqualTo(rawTitle);
+        assertThat(incident.getDescription()).isEqualTo(rawDesc);
+        // Rebuilding from stored values must not change them (previously grew by 4+ chars per cycle).
+        Incident reloaded = new Incident("INC-1", incident.getTitle(), incident.getDescription(), "EMP-1", now);
+        assertThat(reloaded.getTitle()).isEqualTo(rawTitle);
     }
 
     @Test
@@ -137,14 +137,88 @@ class IncidentEncapsulationTest {
         PriorityDecision decision = new PriorityDecision(Priority.P3, 0.40, Collections.emptyList(), Collections.emptyList(), now, null, null);
         incident.classify(IncidentCategory.SOFTWARE, "SVC-1", decision, SlaPolicy.defaultFor(Priority.P3), now);
 
-        assertThatThrownBy(() -> incident.overridePriority(Priority.P1, "ADMIN-1", "   ", now))
+        SlaPolicy p1 = SlaPolicy.defaultFor(Priority.P1);
+        assertThatThrownBy(() -> incident.overridePriority(Priority.P1, "ADMIN-1", "   ", p1, now))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Mandatory reason required for priority override");
 
-        incident.overridePriority(Priority.P1, "ADMIN-1", "Critical financial transaction blockage", now);
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Critical financial transaction blockage", p1, now);
         assertThat(incident.getPriorityDecision().priority()).isEqualTo(Priority.P1);
         assertThat(incident.getPriorityDecision().overriddenBy()).isEqualTo("ADMIN-1");
         assertThat(incident.getPriorityDecision().overrideReason()).isEqualTo("Critical financial transaction blockage");
+    }
+
+    private Incident classifiedAs(Priority priority) {
+        Incident incident = new Incident("INC-1", "Valid Title", "Valid description that is long enough.", "EMP-1", now);
+        PriorityDecision decision = new PriorityDecision(priority, 0.40, Collections.emptyList(), Collections.emptyList(), now, null, null);
+        incident.classify(IncidentCategory.SOFTWARE, "SVC-1", decision, SlaPolicy.defaultFor(priority), now);
+        return incident;
+    }
+
+    @Test
+    @DisplayName("H6: override re-anchors the SLA deadlines to the new priority's policy")
+    void testOverrideReanchorsSlaDeadlines() {
+        Incident incident = classifiedAs(Priority.P4);
+
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Outage", SlaPolicy.defaultFor(Priority.P1), now);
+
+        assertThat(incident.getSlaTracker().getResolutionDueAt()).isEqualTo(now.plus(Duration.ofMinutes(30)));
+        assertThat(incident.getSlaTracker().getResponseDueAt()).isEqualTo(now.plus(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    @DisplayName("H6: an override after the old target moves the ticket to BREACHED at once")
+    void testOverrideAfterNewTargetIsBreached() {
+        Incident incident = classifiedAs(Priority.P4);
+        Instant later = now.plus(Duration.ofHours(2));
+
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Outage", SlaPolicy.defaultFor(Priority.P1), later);
+
+        assertThat(incident.getSlaTracker().getStatus()).isEqualTo(SlaStatus.BREACHED);
+    }
+
+    @Test
+    @DisplayName("H6: override keeps time already spent paused in PENDING_INFO")
+    void testOverrideKeepsPausedDuration() {
+        Incident incident = classifiedAs(Priority.P4);
+        SlaTracker tracker = incident.getSlaTracker();
+        tracker.pauseClock(now);
+        tracker.resumeClock(now.plus(Duration.ofMinutes(20)));
+
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Outage", SlaPolicy.defaultFor(Priority.P1),
+                now.plus(Duration.ofMinutes(21)));
+
+        assertThat(tracker.getResolutionDueAt()).isEqualTo(now.plus(Duration.ofMinutes(50)));
+    }
+
+    @Test
+    @DisplayName("H6: override of a resolved ticket keeps its deadlines and MET verdict")
+    void testOverrideLeavesResolvedTrackerAlone() {
+        Incident incident = classifiedAs(Priority.P4);
+        SlaTracker tracker = incident.getSlaTracker();
+        Instant due = tracker.getResolutionDueAt();
+        tracker.recordResolution(now.plus(Duration.ofMinutes(10)));
+
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Outage", SlaPolicy.defaultFor(Priority.P1),
+                now.plus(Duration.ofHours(3)));
+
+        assertThat(tracker.getResolutionDueAt()).isEqualTo(due);
+        assertThat(tracker.getStatus()).isEqualTo(SlaStatus.MET);
+    }
+
+    @Test
+    @DisplayName("H6: a null policy changes the decision only; a mismatched policy is rejected")
+    void testOverrideNullAndMismatchedPolicy() {
+        Incident incident = classifiedAs(Priority.P4);
+        Instant due = incident.getSlaTracker().getResolutionDueAt();
+
+        assertThatThrownBy(() -> incident.overridePriority(Priority.P1, "ADMIN-1", "Outage",
+                SlaPolicy.defaultFor(Priority.P2), now))
+                .isInstanceOf(ValidationException.class);
+
+        incident.overridePriority(Priority.P1, "ADMIN-1", "Outage", null, now);
+        assertThat(incident.getPriorityDecision().priority()).isEqualTo(Priority.P1);
+        assertThat(incident.getSlaTracker().getResolutionDueAt()).isEqualTo(due);
     }
 }
 

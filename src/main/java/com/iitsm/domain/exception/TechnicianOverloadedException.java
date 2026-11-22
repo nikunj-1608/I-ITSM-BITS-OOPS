@@ -1,5 +1,6 @@
 package com.iitsm.domain.exception;
 
+// OOP (Inheritance, IS-A): a more specific kind of IitsmException; the exception type itself carries the meaning (Exception handling lecture).
 /**
  * OOP: Thrown when an assignment would breach a technician's maximum workload capacity.
  */

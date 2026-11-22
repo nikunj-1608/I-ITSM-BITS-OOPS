@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): IncidentSearchAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 /**
  * Adapter implementing IncidentSearchPort via JPA Specifications and SpringDataIncidentRepository.
  */
@@ -22,6 +23,7 @@ public class IncidentSearchAdapter implements IncidentSearchPort {
 
     private final SpringDataIncidentRepository incidentRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public IncidentSearchAdapter(SpringDataIncidentRepository incidentRepository) {
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
     }
@@ -46,9 +48,10 @@ public class IncidentSearchAdapter implements IncidentSearchPort {
             return Specification.where(null);
         }
 
-        return Specification.where(IncidentSpecifications.hasStatus(criteria.status()))
-                .and(IncidentSpecifications.hasPriority(criteria.priority()))
-                .and(IncidentSpecifications.hasCategory(criteria.category()))
+        return Specification.where(IncidentSpecifications.hasStatusIn(criteria.statuses()))
+                .and(IncidentSpecifications.hasPriorityIn(criteria.priorities()))
+                .and(IncidentSpecifications.hasCategoryIn(criteria.categories()))
+                .and(IncidentSpecifications.hasSlaStatusIn(criteria.slaStatuses()))
                 .and(IncidentSpecifications.hasServiceId(criteria.serviceId()))
                 .and(IncidentSpecifications.hasAssigneeId(criteria.assigneeId()))
                 .and(IncidentSpecifications.hasReporterId(criteria.reporterId()))

@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
 
+// OOP (Separation of concerns): SupportTeamJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 @Entity
 @Table(name = "support_teams")
 public class SupportTeamJpaEntity {

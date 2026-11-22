@@ -9,7 +9,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>I-ITSM :: Intelligent IT Service Management</name>
+    <name>Swiftdesk :: IT Service Management</name>
     <description>CS F213 OOP Project - Intelligent Incident Resolution &amp; IT Service Management</description>
 
     <parent>
@@ -27,7 +27,7 @@
         <!-- Extra Libraries -->
         <jjwt.version>0.12.6</jjwt.version>
         <datafaker.version>2.4.0</datafaker.version>
-        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -133,6 +133,14 @@
             <version>2.0.1</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Real PostgreSQL for migration tests (prod/demo run on PostgreSQL); no Docker or install needed -->
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.0.7</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -211,4 +219,17 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Fast test lane (ADR-025): every test except the embedded-PostgreSQL classes (@Tag("postgres"),
+             about two thirds of the run time) and the report-only benchmarks (@Tag("benchmark")).
+             Use while working: mvn -o test -Pfast. Phase gates still run the full mvn verify. -->
+        <profile>
+            <id>fast</id>
+            <properties>
+                <excludedGroups>postgres,benchmark</excludedGroups>
+                <jacoco.skip>true</jacoco.skip>
+            </properties>
+        </profile>
+    </profiles>
 </project>

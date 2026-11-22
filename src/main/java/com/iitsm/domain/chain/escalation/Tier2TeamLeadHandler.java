@@ -4,6 +4,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.SlaStatus;
 import java.util.Optional;
 
+// OOP (Inheritance): Tier2TeamLeadHandler extends the abstract handler and only supplies its own tier rule (Chain of Responsibility).
 /**
  * Pattern: Chain of Responsibility (Tier 2 Handler).
  * Handles incidents approaching warning threshold (90% elapsed) or failing response deadline,
@@ -11,6 +12,7 @@ import java.util.Optional;
  */
 public class Tier2TeamLeadHandler extends AbstractEscalationHandler {
 
+    // OOP (Method overriding): implements handle(...) from EscalationHandler; if this tier does not apply, it forwards to the next handler.
     @Override
     public Optional<EscalationAction> handle(Incident incident, EscalationContext context) {
         if (context.supportTeamLeadId() != null && incident.getSlaTracker() != null) {
@@ -28,8 +30,7 @@ public class Tier2TeamLeadHandler extends AbstractEscalationHandler {
             }
 
             // Missed initial response target without acknowledgment
-            if (incident.getSlaTracker().getRespondedAt() == null
-                    && context.currentInstant().isAfter(incident.getSlaTracker().getResponseDueAt())) {
+            if (incident.getSlaTracker().isResponseOverdue(context.currentInstant())) {
                 return Optional.of(new EscalationAction(
                         2,
                         "TEAM_LEAD_INTERVENTION",

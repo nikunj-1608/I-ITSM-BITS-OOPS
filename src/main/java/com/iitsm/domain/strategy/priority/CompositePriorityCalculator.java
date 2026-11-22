@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+// OOP (Aggregation): holds a List of PriorityFactor objects; the list can be replaced in the second constructor.
 /**
  * Pattern: Composite / Strategy.
  * Calculates composite incident priority using a 6-factor weighted evaluation model
@@ -21,6 +22,7 @@ import java.util.Objects;
  */
 public class CompositePriorityCalculator {
 
+    // OOP (static final constants): named thresholds instead of magic numbers.
     public static final double P1_THRESHOLD = 0.75;
     public static final double P2_THRESHOLD = 0.55;
     public static final double P3_THRESHOLD = 0.35;
@@ -38,6 +40,7 @@ public class CompositePriorityCalculator {
         ));
     }
 
+    // OOP (Constructor overloading + DI): the no-argument constructor uses the default six factors; this one accepts any list.
     public CompositePriorityCalculator(List<PriorityFactor> factors) {
         this.factors = List.copyOf(Objects.requireNonNull(factors, "factors cannot be null"));
     }

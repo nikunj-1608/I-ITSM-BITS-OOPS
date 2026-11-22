@@ -34,6 +34,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+// OOP (Interface realization): run(...) is called by Spring Boot at start-up through the CommandLineRunner interface.
 /**
  * Seeds the simulated company "Nimbus FinServe" deterministically using seed 42.
  * Generates ~300 employees, 6 teams, ~20 technicians, 14 IT services, and default SLA policies.

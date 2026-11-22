@@ -14,11 +14,13 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): SlaPolicyRepositoryAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 @Component
 public class SlaPolicyRepositoryAdapter implements SlaPolicyRepository {
 
     private final SpringDataSlaPolicyRepository springDataRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public SlaPolicyRepositoryAdapter(SpringDataSlaPolicyRepository springDataRepository) {
         this.springDataRepository = Objects.requireNonNull(springDataRepository, "springDataRepository cannot be null");
     }

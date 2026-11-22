@@ -95,6 +95,28 @@ This document details the formal test verification suite for the **Intelligent I
 - **Status**: **PASS**
 - **Automated Test**: `SearchServiceTest.java`, `IncidentSpecificationsTest.java`
 
+#### TC-NORM-05: Admin Search Filters: Status, SLA Status, Service, Technician and Dates (ADR-049)
+- **Category**: Normal Flow
+- **Traceability**: REQ-WF-13a
+- **Objective**: Verify that every admin filter works alone and that all of them together are AND-ed over HTTP.
+- **Preconditions**: Seeded company; two tickets raised through the intake, ticket A made P1 and pushed past its response target with the simulation clock, then acknowledged (ticket B untouched).
+- **Input**: `GET /api/admin/incidents` with repeated `status`, repeated `slaStatus`, `serviceId`, `assigneeId`, `fromDate`/`toDate`, `priority`, `category`, `query`.
+- **Execution Steps**: MockMvc requests as the administrator, one filter at a time, then all together.
+- **Expected Results**: `slaStatus=BREACHED` returns A only; A's status returns A, two statuses return both; A's service and technician return A; a window around the creation time returns both, an earlier window none; all filters together return A only; a filter no ticket matches (status `CLOSED`, SLA `MET`) returns none.
+- **Actual Results**: As expected.
+- **Status**: **PASS**
+- **Automated Test**: `AdminSearchFiltersRegressionTest.java`, `AdminControllerTest.java`, `IncidentSpecificationsTest.java`; in a real browser: `scripts/live-checks/admin_search_filters_browser.py`
+
+#### TC-EXC-04: Admin Search With a Reversed Date Range or an Unknown Filter Value (ADR-049)
+- **Category**: Exception Handling
+- **Traceability**: REQ-WF-13a, ADR-027
+- **Objective**: Verify that client mistakes in the search are 4xx with stable codes, never 500.
+- **Input**: `fromDate=2026-11-02T00:00:00Z&toDate=2026-11-01T00:00:00Z`; `slaStatus=LATE`; `status=NEW&status=OPEN`.
+- **Expected Results**: The reversed range is HTTP 400 `ERR_VALIDATION_FAILED` naming `fromDate` (equal dates are allowed); unknown values are HTTP 400 `ERR_INVALID_PARAMETER`. In the web app a reversed range shows a message and sends no request.
+- **Actual Results**: As expected.
+- **Status**: **PASS**
+- **Automated Test**: `SearchServiceTest.java`, `AdminControllerTest.java`, `AdminSearchFiltersRegressionTest.java`, `AdminSearchFilterMarkupTest.java`
+
 ---
 
 ### B. Boundary Test Cases

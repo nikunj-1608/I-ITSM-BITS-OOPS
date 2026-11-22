@@ -4,6 +4,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.SlaStatus;
 import java.util.Optional;
 
+// OOP (Inheritance + overriding): extends the abstract handler and implements handle(...) for tier 1 only.
 /**
  * Pattern: Chain of Responsibility (Tier 1 Handler).
  * Handles incidents entering AT_RISK status (75% elapsed), nudging the assigned technician.

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+// OOP (Realization): NaiveBayesClassifier realizes IncidentClassifier, so it can be used alone or inside the composite.
 /**
  * Pattern: Strategy.
  * Multinomial Naive Bayes probabilistic text classifier implemented in pure Java with Laplace smoothing.
@@ -116,6 +117,7 @@ public class NaiveBayesClassifier implements IncidentClassifier {
         trained = false;
     }
 
+    // OOP (Method overriding): this is the classifier's implementation of classify(...).
     @Override
     public ClassificationResult classify(String title, String description) {
         if (!trained) {

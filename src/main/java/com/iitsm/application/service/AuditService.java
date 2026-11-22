@@ -7,6 +7,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// OOP (Tell, Don't Ask): AuditService orchestrates the use case and tells domain objects to make the business decisions.
 /**
  * Application service providing read and write access to incident audit trails.
  */

@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
 
+// OOP (Separation of concerns): ItServiceJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 @Entity
 @Table(name = "it_services")
 public class ItServiceJpaEntity {

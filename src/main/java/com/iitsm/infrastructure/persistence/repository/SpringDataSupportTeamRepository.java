@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+// OOP (Interface inheritance): extends the Spring Data interface, so CRUD methods are inherited and the framework writes the implementation.
 @Repository
 public interface SpringDataSupportTeamRepository extends JpaRepository<SupportTeamJpaEntity, String> {
 

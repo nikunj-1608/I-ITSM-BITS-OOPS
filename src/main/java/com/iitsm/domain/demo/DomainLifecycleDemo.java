@@ -36,7 +36,7 @@ public class DomainLifecycleDemo {
         Instant now = clock.instant();
 
         System.out.println("================================================================================");
-        System.out.println("  I-ITSM :: Pure Domain Core Lifecycle Demonstration (NEW -> CLOSED)");
+        System.out.println("  Swiftdesk :: Pure Domain Core Lifecycle Demonstration (NEW -> CLOSED)");
         System.out.println("================================================================================\n");
 
         // 1. Setup Event-Driven Spine (Observer Pattern)

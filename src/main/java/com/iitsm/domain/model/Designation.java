@@ -28,5 +28,10 @@ public enum Designation {
     public double getPriorityWeight() {
         return priorityWeight;
     }
+
+    /** The designation named by client text (ignoring case); an unknown name is a ValidationException (HTTP 400). */
+    public static Designation fromText(String text) {
+        return EnumText.parse(Designation.class, text, "designation");
+    }
 }
 

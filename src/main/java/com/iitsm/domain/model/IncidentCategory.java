@@ -23,5 +23,10 @@ public enum IncidentCategory {
     public String getDisplayName() {
         return displayName;
     }
+
+    /** The category named by client text (ignoring case); an unknown name is a ValidationException (HTTP 400). */
+    public static IncidentCategory fromText(String text) {
+        return EnumText.parse(IncidentCategory.class, text, "category");
+    }
 }
 

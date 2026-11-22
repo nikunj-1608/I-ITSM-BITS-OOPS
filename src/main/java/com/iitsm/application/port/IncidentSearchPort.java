@@ -4,8 +4,10 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentCategory;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.Priority;
+import com.iitsm.domain.model.SlaStatus;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -15,9 +17,10 @@ import org.springframework.data.domain.Pageable;
 public interface IncidentSearchPort {
 
     record SearchCriteria(
-            IncidentStatus status,
-            Priority priority,
-            IncidentCategory category,
+            Set<IncidentStatus> statuses,
+            Set<Priority> priorities,
+            Set<IncidentCategory> categories,
+            Set<SlaStatus> slaStatuses,
             String serviceId,
             String assigneeId,
             String reporterId,

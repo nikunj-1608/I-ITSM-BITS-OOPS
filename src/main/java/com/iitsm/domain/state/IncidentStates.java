@@ -5,6 +5,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 
+// OOP (final class): cannot be extended; a registry that only offers static lookup.
 /**
  * Pattern: State / Flyweight Registry.
  * Holds stateless singleton instances of each IncidentState implementation in an EnumMap for fast lookup.
@@ -30,6 +31,7 @@ public final class IncidentStates {
         // Prevent instantiation
     }
 
+    // OOP (static factory method): looks up the shared state object for a status; states are stateless, so one instance each is enough.
     public static IncidentState of(IncidentStatus status) {
         Objects.requireNonNull(status, "IncidentStatus cannot be null");
         IncidentState state = REGISTRY.get(status);

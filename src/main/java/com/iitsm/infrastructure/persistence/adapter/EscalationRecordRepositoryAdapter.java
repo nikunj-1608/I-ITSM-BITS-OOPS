@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
+// OOP (Adapter + Dependency Inversion): EscalationRecordRepositoryAdapter implements a domain port with Spring Data/JPA; the domain never sees the database.
 /**
  * Adapter implementing the pure domain EscalationRecordRepository port via SpringDataEscalationRecordRepository.
  */
@@ -20,6 +21,7 @@ public class EscalationRecordRepositoryAdapter implements EscalationRecordReposi
 
     private final SpringDataEscalationRecordRepository springDataRepository;
 
+    // OOP (Dependency Injection): collaborators are passed through the constructor (no field injection), stored in final fields.
     public EscalationRecordRepositoryAdapter(SpringDataEscalationRecordRepository springDataRepository) {
         this.springDataRepository = Objects.requireNonNull(springDataRepository, "springDataRepository cannot be null");
     }

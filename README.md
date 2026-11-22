@@ -10,6 +10,22 @@ Built as a course project for **CS F213 (Object-Oriented Programming)**, set in 
 
 **Stack:** Java 21, Spring Boot 3.3, plain HTML/CSS/JavaScript front end (no Node.js needed).
 
+### Tech stack
+
+| Area | Technology |
+|---|---|
+| Language | Java 21 |
+| Framework | Spring Boot 3.3 (Web, Validation, Data JPA, Security, Mail, Actuator) |
+| Front end | Plain HTML, CSS and JavaScript served by Spring Boot (no Node.js, no build step) |
+| Database | H2 in memory by default; PostgreSQL with the `prod` profile |
+| Migrations | Flyway |
+| Authentication | Spring Security with JWT tokens (jjwt) |
+| API docs | springdoc OpenAPI (Swagger UI) |
+| Text classification | Plain Java (TF-IDF, cosine similarity, Naive Bayes), no ML library |
+| Demo data | Datafaker |
+| Build | Maven (wrapper included) |
+| Testing | JUnit 5, Spring Boot Test, ArchUnit, GreenMail, embedded PostgreSQL, JaCoCo |
+
 ---
 
 ## Contents
@@ -130,7 +146,7 @@ Every demo account uses the password **`Password123!`**
 | IT manager | `manager@nimbusfinserve.com` |
 | Administrator | `admin@nimbusfinserve.com` |
 
-The demo company has 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians. More technician logins follow the same pattern, such as `tech.net2@` and `tech.desk1@`.
+The table above lists only a few accounts, just enough for a quick demo. We have created many more demo accounts, and they all use the same password. The demo company has 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians. Every technician and team lead has their own login, and signing in with it takes you straight to that person's own technician console, for their own field. For example, `tech.sec1@nimbusfinserve.com` opens Carlos Mendez's console in the Security team. More technician logins follow the same pattern, such as `tech.net2@`, `tech.db1@`, `tech.desk1@` and `lead.sec@`.
 
 ---
 
@@ -267,12 +283,80 @@ The code is split into layers that only depend inward, so the business rules sta
 web  →  application  →  domain  ←  infrastructure
 ```
 
+```mermaid
+flowchart TB
+    Browser["Browser<br/>HTML / CSS / JavaScript"]
+
+    subgraph App["Spring Boot application"]
+        direction TB
+        Web["web<br/>REST controllers, role-specific responses"]
+        Application["application<br/>services, one transaction per use case"]
+        Domain["domain<br/>tickets, state machine, priority, assignment,<br/>SLA, escalation (plain Java, no Spring)"]
+        Infra["infrastructure<br/>JPA adapters, security, email, schedulers"]
+    end
+
+    DB[("H2 (default) or PostgreSQL<br/>Flyway migrations")]
+    Mail["SMTP server<br/>(optional, e.g. Mailpit)"]
+
+    Browser -->|"HTTP + JWT"| Web
+    Web --> Application
+    Application --> Domain
+    Infra -->|"implements domain interfaces"| Domain
+    Infra --> DB
+    Infra --> Mail
+```
+
 | Layer | Contains |
 |---|---|
 | `domain` | The core rules: tickets, the lifecycle state machine, priority, assignment, SLA, escalation. Plain Java, no Spring. |
 | `application` | Services that coordinate a use case in one transaction. |
 | `infrastructure` | Database, security, email, schedulers. |
 | `web` | REST controllers and the role-specific response objects. |
+
+### Project structure
+
+```
+.
+├── src/
+│   ├── main/
+│   │   ├── java/com/iitsm/
+│   │   │   ├── IitsmApplication.java   Spring Boot entry point
+│   │   │   ├── web/                    REST controllers, DTOs, mappers, error handling, web security
+│   │   │   ├── application/            Use-case services, DTOs, ports and policies
+│   │   │   ├── domain/                 Core rules, plain Java with no Spring
+│   │   │   │   ├── model/              Incidents, users, teams, IT services, SLA tracking
+│   │   │   │   ├── state/              Ticket lifecycle state machine
+│   │   │   │   ├── strategy/           Assignment, classification, priority, similarity
+│   │   │   │   ├── chain/              Escalation tiers (Chain of Responsibility)
+│   │   │   │   ├── event/              Domain events
+│   │   │   │   ├── policy/             Access, routing and rate-limit policies
+│   │   │   │   ├── repository/         Repository interfaces
+│   │   │   │   ├── security/           Helpers for two-step verification (Base32)
+│   │   │   │   ├── exception/          Domain exceptions
+│   │   │   │   ├── demo/               Plain-Java lifecycle demo
+│   │   │   │   └── simulation/         Assignment-method simulation
+│   │   │   ├── infrastructure/         Adapters for the outside world
+│   │   │   │   ├── persistence/        Entities, repositories, adapters, mappers, search specs, company seeder
+│   │   │   │   ├── security/           JWT, login, rate limiting, secret encryption
+│   │   │   │   ├── notification/       Email, SMS and in-app notification channels
+│   │   │   │   ├── observer/           Audit and notification listeners
+│   │   │   │   ├── scheduling/         Background jobs (SLA monitoring, token cleanup, capacity audit)
+│   │   │   │   └── config/             Spring configuration, adjustable clock
+│   │   │   └── simulation/             Simulation service for the Simulation tab
+│   │   └── resources/
+│   │       ├── application.yml         App settings and profiles
+│   │       ├── db/migration/           Flyway SQL migrations
+│   │       ├── sim/                    Training corpus and test tickets (CSV)
+│   │       └── static/                 Front end: index.html, app.js, styles.css, assets
+│   └── test/java/com/iitsm/            Unit, integration, architecture and regression tests
+├── docs/                               Requirements, architecture, UML, design patterns, test cases
+├── scripts/                            Live-check scripts and data repair tools
+├── mockups/                            Login page design mockups
+├── logo-concepts/                      Swiftdesk logo
+├── Dockerfile, docker-compose.yml      Container setup (Mailpit and the app)
+├── pom.xml, mvnw, mvnw.cmd             Maven build and wrapper
+└── README.md
+```
 
 The main object-oriented ideas on show, with a place to find each:
 

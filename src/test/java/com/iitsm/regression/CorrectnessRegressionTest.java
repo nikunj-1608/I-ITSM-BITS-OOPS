@@ -7,7 +7,7 @@ import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.iitsm.application.service.IncidentService;
-import java.util.ConcurrentModificationException;
+import com.iitsm.domain.exception.ConcurrentUpdateException;
 import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.IncidentStatus;
 import com.iitsm.domain.model.ItService;
@@ -278,8 +278,9 @@ public class CorrectnessRegressionTest {
             technicianRepository.save(t);
         }
 
-        // Free exactly 1 slot on the first tech
-        Technician targetTech = technicianRepository.findById(allTechs.getFirst().getId()).orElseThrow();
+        // Free exactly 1 slot on a network technician: both reports below are network tickets, because since ADR-036 a
+        // ticket is offered only to the team that handles its category (and skilled overflow), never to "anyone"
+        Technician targetTech = technicianRepository.findById("TECH-NET-1").orElseThrow();
         targetTech.releaseIncident("DUMMY-FILL-0");
         technicianRepository.save(targetTech);
 
@@ -288,13 +289,17 @@ public class CorrectnessRegressionTest {
         java.util.concurrent.atomic.AtomicReference<Throwable> threadError = new java.util.concurrent.atomic.AtomicReference<>();
         java.util.List<Incident> createdList = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-        Runnable task = () -> {
+        // The two reporters belong to different departments on purpose (tickets of one department are issued one
+        // transaction at a time, gap-free numbering), and the two reports differ in content on purpose: intake is
+        // serialised (ADR-018), so the second report sees the first, and an identical one would be linked to it as a
+        // duplicate and ride its technician (F4) instead of competing for the slot this test is about.
+        java.util.function.BiFunction<String, String, Runnable> taskFor = (reporter, description) -> () -> {
             try {
                 latch.await();
                 Incident inc = incidentService.createIncident(
-                        "employee@nimbusfinserve.com",
+                        reporter,
                         "Concurrent High Priority Issue " + java.util.UUID.randomUUID(),
-                        "Critical production gateway connection failure requiring immediate dispatch"
+                        description
                 );
                 createdList.add(inc);
             } catch (Throwable t) {
@@ -303,8 +308,10 @@ public class CorrectnessRegressionTest {
         };
 
         try {
-            executor.submit(task);
-            executor.submit(task);
+            executor.submit(taskFor.apply("employee@nimbusfinserve.com",
+                    "Critical production gateway connection failure requiring immediate dispatch"));
+            executor.submit(taskFor.apply("ceo@nimbusfinserve.com",
+                    "Wireless access points down: wifi ssid unreachable and dns lookups fail across the office lan"));
             latch.countDown();
             executor.shutdown();
             executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
@@ -337,8 +344,8 @@ public class CorrectnessRegressionTest {
     }
 
     @Test
-    @DisplayName("A4: Optimistic lock failure on concurrent update must throw ConcurrentModificationException, not PersistenceFailureException")
-    void A4_concurrentAcknowledgmentThrowsConcurrentModificationException() {
+    @DisplayName("A4: Optimistic lock failure on concurrent update must throw ConcurrentUpdateException (HTTP 409), not PersistenceFailureException")
+    void A4_concurrentAcknowledgmentThrowsConcurrentUpdateException() {
         // Finding A4: IncidentRepositoryAdapter catches DataAccessException and throws generic PersistenceFailureException
         Incident inc = incidentService.createIncident(
                 "employee@nimbusfinserve.com",
@@ -357,8 +364,8 @@ public class CorrectnessRegressionTest {
         // Copy 2 attempts save with stale version
         copy2.acknowledge("tech.network@nimbusfinserve.com", Instant.now());
         assertThatThrownBy(() -> incidentRepository.save(copy2))
-                .as("Stale optimistic lock update must throw ConcurrentModificationException for HTTP 409 mapping")
-                .isInstanceOf(ConcurrentModificationException.class);
+                .as("Stale optimistic lock update must throw ConcurrentUpdateException for HTTP 409 mapping")
+                .isInstanceOf(ConcurrentUpdateException.class);
     }
 
     @Test
@@ -367,9 +374,19 @@ public class CorrectnessRegressionTest {
         // Finding F8: JavaMailSender bean is unavailable in default run, so EmailChannel only logs simulation text
         emailChannel.send("tester@nimbusfinserve.com", "Incident Assigned: INC-100", "You have been assigned ticket INC-100.");
 
-        // GreenMail should receive 1 message
+        // Other tests' notifications are delivered after commit on a worker thread and can land on this shared
+        // SMTP port after greenMail.reset(), so count only the message this test sent.
         assertThat(greenMail.getReceivedMessages())
                 .as("EmailChannel must send an actual SMTP message when email notification is triggered")
+                .filteredOn(message -> hasSubject(message, "Incident Assigned: INC-100"))
                 .hasSize(1);
+    }
+
+    private static boolean hasSubject(jakarta.mail.internet.MimeMessage message, String subject) {
+        try {
+            return subject.equals(message.getSubject());
+        } catch (jakarta.mail.MessagingException e) {
+            throw new IllegalStateException("Cannot read the subject of a received message", e);
+        }
     }
 }

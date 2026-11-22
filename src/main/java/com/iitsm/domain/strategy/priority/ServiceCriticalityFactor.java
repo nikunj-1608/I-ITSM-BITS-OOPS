@@ -5,6 +5,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.User;
 
+// OOP (Open/Closed + Polymorphism): ServiceCriticalityFactor is one PriorityFactor; a new factor is a new class, the calculator is not edited.
 /**
  * Pattern: Strategy.
  * Factor evaluating the business criticality of the affected IT Service (weight: 0.30).
@@ -14,6 +15,7 @@ public class ServiceCriticalityFactor implements PriorityFactor {
     public static final String FACTOR_NAME = "ServiceCriticality";
     public static final double WEIGHT = 0.30;
 
+    // OOP (Method overriding): implements the factor contract declared by PriorityFactor.
     @Override
     public FactorContribution evaluate(Incident incident, User reporter, ItService service, IncidentEvaluationContext context) {
         double rawScore;

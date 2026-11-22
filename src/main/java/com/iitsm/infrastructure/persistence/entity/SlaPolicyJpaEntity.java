@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+// OOP (Separation of concerns): SlaPolicyJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 @Entity
 @Table(name = "sla_policies")
 public class SlaPolicyJpaEntity {

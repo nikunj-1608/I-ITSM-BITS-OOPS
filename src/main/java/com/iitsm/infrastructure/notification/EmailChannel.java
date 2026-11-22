@@ -10,6 +10,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
+// OOP (Polymorphism / Open-Closed): EmailChannel is one NotificationChannel; the router sends through the interface and a new channel is just a new class.
 /**
  * Pattern: Adapter.
  * Adapts Spring Mail (JavaMailSender) to the NotificationChannel interface.
@@ -41,6 +42,7 @@ public class EmailChannel implements NotificationChannel {
         this.overrideRecipient = overrideRecipient;
     }
 
+    // OOP (Method overriding): this channel's own way of delivering a notification.
     @Override
     public String getChannelName() {
         return CHANNEL_NAME;
@@ -59,7 +61,7 @@ public class EmailChannel implements NotificationChannel {
                     ? overrideRecipient.trim()
                     : recipientEmail;
             String formattedSubject = (overrideRecipient != null && !overrideRecipient.trim().isEmpty())
-                    ? String.format("[I-ITSM -> %s] %s", recipientEmail, subject)
+                    ? String.format("[Swiftdesk -> %s] %s", recipientEmail, subject)
                     : subject;
 
             SimpleMailMessage mailMessage = new SimpleMailMessage();

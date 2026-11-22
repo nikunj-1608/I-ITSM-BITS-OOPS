@@ -3,12 +3,14 @@ package com.iitsm.domain.model;
 import com.iitsm.domain.exception.ValidationException;
 import java.util.Objects;
 
+// OOP (Inheritance, IS-A): an Employee is a User, so it reuses all of the parent's behaviour and adds designation and department.
 /**
  * OOP: Concrete user subclass representing an employee who can raise and verify incidents.
  */
 public class Employee extends User {
 
     private Designation designation;
+    // OOP (Immutability): final field, assigned once in the constructor and never changed.
     private final String department;
     private final int seniorityYears;
 
@@ -40,6 +42,8 @@ public class Employee extends User {
         this.designation = Objects.requireNonNull(designation, "Designation cannot be null");
     }
 
+    // OOP (Dynamic dispatch): this override is chosen at run time from the real object type, not from the variable type.
+    @Override
     public String getDepartment() {
         return department;
     }

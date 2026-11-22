@@ -5,6 +5,7 @@ import com.iitsm.domain.model.Incident;
 import com.iitsm.domain.model.ItService;
 import com.iitsm.domain.model.User;
 
+// OOP (Open/Closed + Polymorphism): ReporterHistoryFactor is one PriorityFactor; a new factor is a new class, the calculator is not edited.
 /**
  * Pattern: Strategy.
  * Factor evaluating reporter's historical ticket volume and chronic recurrence (weight: 0.10).
@@ -14,6 +15,7 @@ public class ReporterHistoryFactor implements PriorityFactor {
     public static final String FACTOR_NAME = "ReporterHistory";
     public static final double WEIGHT = 0.10;
 
+    // OOP (Method overriding): implements the factor contract declared by PriorityFactor.
     @Override
     public FactorContribution evaluate(Incident incident, User reporter, ItService service, IncidentEvaluationContext context) {
         int recentCount = (context != null) ? context.reporterRecentIncidentCount() : 0;

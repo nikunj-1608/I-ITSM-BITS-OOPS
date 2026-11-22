@@ -135,5 +135,28 @@ class EscalationChainTest {
         Optional<EscalationAction> action = chain.handle(incident, context);
         assertThat(action).isEmpty();
     }
+
+    @Test
+    @DisplayName("H4: a P1 ticket paused in PENDING_INFO past its old deadline triggers no escalation")
+    void testNoEscalationWhilePausedPastOldDeadline() {
+        Incident incident = createIncident(Priority.P1, "SVC-CORE-DB"); // created 40m ago, P1 resolution 30m
+        incident.acknowledge("TECH-NET-1", now.minus(Duration.ofMinutes(38)));
+        incident.getSlaTracker().pauseClock(now.minus(Duration.ofMinutes(30)));
+
+        incident.updateSlaStatus(now);
+
+        assertThat(chain.handle(incident, context)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("H4: Tier 2 response check ignores a paused clock (unacknowledged, past response due)")
+    void testTier2ResponseCheckIgnoresPausedClock() {
+        Incident incident = createIncident(Priority.P1, "SVC-CORE-DB"); // never acknowledged
+        incident.getSlaTracker().pauseClock(now.minus(Duration.ofMinutes(37))); // 3m after creation, response due at +5m
+
+        incident.updateSlaStatus(now);
+
+        assertThat(chain.handle(incident, context)).isEmpty();
+    }
 }
 

@@ -71,6 +71,16 @@ public class ArchitectureRegressionTest {
     }
 
     @Test
+    @DisplayName("ADR-037: controllers get the signed-in user's id from CurrentUser, never from Authentication.getName() (the login e-mail)")
+    void controllersDoNotReadTheLoginNameDirectly() {
+        noClasses()
+                .that().resideInAPackage("com.iitsm.web.controller..")
+                .and().doNotHaveSimpleName("AuthController")
+                .should().callMethod(org.springframework.security.core.Authentication.class, "getName")
+                .check(importedClasses);
+    }
+
+    @Test
     @DisplayName("N4: Pure Hexagonal Domain Core - domain layer must not depend on Spring, Jakarta, Application, Infrastructure or Web")
     void N4_domainLayerMustBePristineHexagonalCore() {
         noClasses()

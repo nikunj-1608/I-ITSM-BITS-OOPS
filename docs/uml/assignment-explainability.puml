@@ -1,0 +1,266 @@
+@startuml assignment-explainability
+' Explainable technician assignment (spec feature D, ADR-044).
+' Phase L1: every strategy ranks every candidate; recommend() takes the top of the same ranking.
+' Phase L2: every assignment path records an AssignmentDecision in its own transaction; admins see it in the dialog.
+' Phase L3: see assignment-strategy-comparison.puml. Phase L4: the service-experience factor (bottom of this file).
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "domain.strategy.assignment" {
+  interface AssignmentStrategy <<Strategy>> {
+    +recommend(Incident, List<Technician>) : AssignmentRecommendation
+    +rank(Incident, List<Technician>) : List<CandidateScore>
+    +freshInstance() : AssignmentStrategy
+    +getStrategyName() : String
+    +getDescription() : String
+  }
+  class WeightedCompositeStrategy {
+    +DEFAULT_PRIORITY = P3
+    +WeightedCompositeStrategy()
+    +WeightedCompositeStrategy(List<AssignmentFactor>, FactorWeights)
+  }
+  class SkillBasedStrategy
+  class LoadBasedStrategy
+  class ExperienceBasedStrategy
+  class RoundRobinStrategy {
+    -counter : AtomicInteger
+    +rank() reads the slot
+    +recommend() takes and advances the slot
+    +freshInstance() : new rotation
+  }
+  class AssignmentStrategyRegistry <<Registry>>
+
+  interface AssignmentFactor <<Strategy>> {
+    +key() : String
+    +label() : String
+    +read(AssignmentContext, Technician) : Reading
+  }
+  class SkillMatchFactor
+  class LoadFactor
+  class ExperienceFactor {
+    -fullScoreYears : int
+  }
+  class FactorWeights <<value>> {
+    +defaults() : FactorWeights
+    +weightOf(Priority, key) : double
+  }
+  class AssignmentContext <<record>> {
+    incident
+    fullText
+    tokens
+  }
+  class SkillEvidence <<record>> {
+    categorySkills
+    keywordPoints
+  }
+  class RankedCandidates {
+    +rank(entries, bestFirst) : RankedCandidates
+    +inOrder(entries) : RankedCandidates
+    +top() : Entry
+    +scores() : List<CandidateScore>
+    +toRecommendation(name, rationale)
+  }
+  class CandidateScore <<record>> {
+    technicianId
+    factorScores
+    total
+    rank
+    chosen
+  }
+  class FactorScore <<record>> {
+    factorKey
+    rawScore
+    weight
+    contribution = raw x weight
+    detail
+  }
+  class AssignmentRecommendation <<record>> {
+    technician
+    score
+    strategyName
+    rationale
+    ranking : List<CandidateScore>
+  }
+}
+
+AssignmentStrategy <|.. WeightedCompositeStrategy
+AssignmentStrategy <|.. SkillBasedStrategy
+AssignmentStrategy <|.. LoadBasedStrategy
+AssignmentStrategy <|.. ExperienceBasedStrategy
+AssignmentStrategy <|.. RoundRobinStrategy
+AssignmentStrategyRegistry o--> "5..*" AssignmentStrategy
+
+AssignmentFactor <|.. SkillMatchFactor
+AssignmentFactor <|.. LoadFactor
+AssignmentFactor <|.. ExperienceFactor
+WeightedCompositeStrategy o--> "1..*" AssignmentFactor
+WeightedCompositeStrategy --> FactorWeights
+SkillMatchFactor ..> SkillEvidence
+SkillBasedStrategy ..> SkillEvidence
+LoadBasedStrategy ..> LoadFactor
+LoadBasedStrategy ..> ExperienceFactor
+ExperienceBasedStrategy ..> ExperienceFactor
+ExperienceBasedStrategy ..> LoadFactor
+AssignmentFactor ..> AssignmentContext
+
+WeightedCompositeStrategy ..> RankedCandidates
+SkillBasedStrategy ..> RankedCandidates
+LoadBasedStrategy ..> RankedCandidates
+ExperienceBasedStrategy ..> RankedCandidates
+RoundRobinStrategy ..> RankedCandidates
+RankedCandidates ..> AssignmentRecommendation : creates
+AssignmentRecommendation *--> "0..*" CandidateScore
+CandidateScore *--> "1..*" FactorScore
+
+note right of RankedCandidates
+  Stable sort: candidates the strategy's order
+  cannot tell apart keep their input order,
+  so the first one wins (as before ADR-044).
+  recommend() = top of this ranking.
+end note
+
+package "domain.strategy.assignment (decisions, L2)" as decisions {
+  enum PoolKind {
+    OWNING_TEAM
+    SKILLED_OVERFLOW
+    MANUAL
+    INHERITED_FROM_PARENT
+    REQUEUED_TO_SAME_TECHNICIAN
+  }
+  class RoutedCandidates <<record>> {
+    pool : PoolKind
+    technicians
+  }
+  class AssignmentDecision <<record>> {
+    id
+    incidentId
+    poolKind
+    strategyName
+    chosenTechnicianId
+    actorId
+    relatedIncidentId
+    decidedAt
+    candidateCount
+    candidates : List<CandidateScore>
+    +byStrategy(..., maxCandidates)
+    +manual(...)
+    +inheritedFromParent(...)
+    +requeuedToSameTechnician(...)
+  }
+  class CandidateFilter {
+    +route(...) : RoutedCandidates
+  }
+}
+package "domain.repository" {
+  interface AssignmentDecisionRepository <<port>> {
+    +save(decision)
+    +findNewestByIncidentId(id, limit)
+  }
+}
+
+package "application.service" {
+  class TechnicianAssignmentService {
+    +tryAssignTechnician(incident, routed, strategy, actorId, now)
+  }
+  class AssignmentDecisionRecorder <<MANDATORY>> {
+    +recordStrategyChoice(...)
+    +recordManual(...)
+    +recordInheritedFromParent(...)
+    +recordRequeued(...)
+  }
+  class TicketRouter {
+    +route(incident, available) : RoutedCandidates
+  }
+  class TicketDispatchService
+  class AdminIncidentService
+  class IncidentIntakePipeline
+  class AdminIncidentDetailService
+}
+
+package "infrastructure.persistence" {
+  class AssignmentDecisionRepositoryAdapter <<Adapter>>
+  class CandidateScoresJson <<Mapper>>
+  class AssignmentDecisionJpaEntity <<V11 assignment_decisions>> {
+    candidates_json : TEXT
+  }
+}
+
+package "web" {
+  class AdminIncidentDetailView <<record>> {
+    assignmentDecisions : List<AssignmentDecisionView>
+  }
+  class AssignmentDecisionViewMapper <<Mapper>>
+  class "app.js section 14" as Dialog <<browser>> {
+    renderTicketDetailAssignmentWhy(d)
+  }
+}
+
+TechnicianAssignmentService ..> AssignmentStrategy : recommend()
+TechnicianAssignmentService --> AssignmentDecisionRecorder : strategy choice
+TicketDispatchService --> TechnicianAssignmentService : intake, dispatcher
+AdminIncidentService --> TechnicianAssignmentService : accept-suggestion, reclassify
+AdminIncidentService --> AssignmentDecisionRecorder : manual, requeued
+IncidentIntakePipeline --> AssignmentDecisionRecorder : inherited from parent
+TicketRouter --> CandidateFilter
+TicketRouter ..> RoutedCandidates
+AssignmentDecisionRecorder --> AssignmentDecisionRepository
+AssignmentDecisionRecorder ..> AssignmentDecision : creates
+AssignmentDecision --> PoolKind
+AssignmentDecision *--> "0..10" CandidateScore
+AssignmentDecisionRepositoryAdapter ..|> AssignmentDecisionRepository
+AssignmentDecisionRepositoryAdapter --> CandidateScoresJson
+AssignmentDecisionRepositoryAdapter --> AssignmentDecisionJpaEntity
+AdminIncidentDetailService --> AssignmentDecisionRepository : newest 5
+AssignmentDecisionViewMapper ..> AdminIncidentDetailView
+Dialog ..> AdminIncidentDetailView : GET /api/admin/incidents/{id}
+
+note bottom of AdminIncidentDetailView
+  Administrators only: no technician or
+  employee view carries decisions
+  (candidates reveal colleagues' load).
+end note
+
+' --- Phase L4 (ADR-044): the service-experience factor ---
+package "domain.strategy.assignment (service experience, L4)" as l4 {
+  interface ServiceExperienceSource <<port>> {
+    +resolvedTicketCounts(serviceId, technicianIds) : Map<String, Integer>
+    +none() : ServiceExperienceSource
+  }
+  class ServiceExperience <<record>> {
+    serviceId
+    resolvedByTechnician
+    +applies() : boolean  (not for the general service)
+    +resolvedBy(technicianId) : int
+  }
+  class ServiceExperienceFactor {
+    SERVICE_EXPERIENCE
+    resolved / 5, capped at 1
+  }
+  interface ServiceExperienceBindable {
+    +bindExperience(source) : AssignmentStrategy
+  }
+}
+package "infrastructure.persistence (L4)" as l4infra {
+  class ServiceExperienceAdapter <<Adapter>> {
+    one grouped read-only query per ranking
+    RESOLVED, VERIFIED, CLOSED only
+  }
+}
+
+ServiceExperienceFactor ..|> AssignmentFactor
+ServiceExperienceFactor ..> ServiceExperience : reads from the context
+AssignmentContext o--> ServiceExperience
+WeightedCompositeStrategy ..|> ServiceExperienceBindable
+WeightedCompositeStrategy --> ServiceExperienceSource : one lookup per ranking
+WeightedCompositeStrategy o--> ServiceExperienceFactor : weight 0.10 (0 = off)
+FactorWeights ..> ServiceExperienceFactor : withFactor(key, w) scales the others by 1 - w
+ServiceExperienceAdapter ..|> ServiceExperienceSource
+StrategyReplay ..> ServiceExperienceBindable : re-binds to its own in-memory counts
+
+note right of ServiceExperienceBindable
+  The offline comparison never reads the real
+  database: a strategy wired to the adapter is
+  re-bound to the replay's own counts.
+end note
+
+@enduml

@@ -4,6 +4,7 @@ import com.iitsm.domain.model.SlaPolicy;
 import com.iitsm.infrastructure.persistence.entity.SlaPolicyJpaEntity;
 import java.time.Duration;
 
+// OOP (Single responsibility): SlaPolicyMapper only converts between domain objects and entities; it holds no business rule.
 public final class SlaPolicyMapper {
 
     private SlaPolicyMapper() {}

@@ -10,6 +10,7 @@ import com.iitsm.domain.model.Resolution;
 import java.time.Instant;
 import java.util.Set;
 
+// OOP (Interface / Abstraction): defines WHAT a state can do; each concrete state decides HOW. Callers depend on this interface only.
 /**
  * Pattern: State.
  * Encapsulates state-specific behavior and transition invariants for an Incident.
@@ -21,6 +22,7 @@ public interface IncidentState {
 
     Set<String> allowedActions();
 
+    // OOP (Default methods): every action refuses by default, so a state class overrides only the actions it allows.
     default void classify(
             Incident incident,
             IncidentCategory category,
@@ -68,6 +70,15 @@ public interface IncidentState {
 
     default void flagWrongDomain(Incident incident, String technicianId, String reason, Instant now) {
         throw new InvalidStateTransitionException(getStatus(), "flagWrongDomain", allowedActions());
+    }
+
+    // OOP (Polymorphism): finished states override this and answer false; no status check is needed in the service.
+    /**
+     * Whether an administrator may override the ticket's priority in this state (ADR-028). True while the ticket is
+     * open; false once it is resolved, because its SLA verdict is final and a new priority could no longer change it.
+     */
+    default boolean allowsPriorityOverride() {
+        return true;
     }
 }
 

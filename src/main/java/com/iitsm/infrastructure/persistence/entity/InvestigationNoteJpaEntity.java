@@ -9,6 +9,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
+// OOP (Separation of concerns): InvestigationNoteJpaEntity is the persistence twin of a domain class; mappers convert between them so the domain stays free of JPA.
 @Entity
 @Table(name = "investigation_notes")
 public class InvestigationNoteJpaEntity {

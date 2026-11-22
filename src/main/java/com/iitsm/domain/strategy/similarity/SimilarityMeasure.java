@@ -1,5 +1,6 @@
 package com.iitsm.domain.strategy.similarity;
 
+// OOP (Interface): cosine and Jaccard similarity are interchangeable behind this contract.
 /**
  * Pattern: Strategy.
  * Interface defining text similarity metrics for duplicate detection and correlation.

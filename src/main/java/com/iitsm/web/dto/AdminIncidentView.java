@@ -8,12 +8,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+// OOP (Immutability): AdminIncidentView is a record, so it is a read-only data carrier with no setters.
 /**
  * Persona DTO for Administrator command centre.
  * Full visibility including priority calculation explainability, SLA internals, and complete audit history.
  */
 public record AdminIncidentView(
         String id,
+        String displayId,
         String title,
         String description,
         String reporterId,
@@ -43,6 +45,7 @@ public record AdminIncidentView(
             List<String> rulesApplied,
             Instant calculatedAt,
             String overriddenBy,
+            String overriddenByName,
             String overrideReason) {}
 
     public record FactorContributionView(
@@ -69,6 +72,7 @@ public record AdminIncidentView(
             String id,
             Instant timestamp,
             String actorId,
+            String actorName,
             String action,
             String previousState,
             String newState,

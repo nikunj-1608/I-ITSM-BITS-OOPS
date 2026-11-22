@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nimbus FinServe :: Intelligent IT Service Management (I-ITSM)</title>
+  <title>Nimbus FinServe :: Swiftdesk</title>
   <!-- Self-Contained Modern Stylesheet (Zero CDN Dependencies, CSP script-src 'self' compliant) -->
-  <link rel="stylesheet" href="/styles.css?v=3.0">
+  <link rel="stylesheet" href="/styles.css?v=5.6">
 </head>
 <body>
 
@@ -16,99 +16,64 @@
     
     <!-- Sign In Card -->
     <div id="login-card" class="auth-card">
-      <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
-        <div class="brand-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-md">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </div>
-        <div>
-          <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">Nimbus FinServe</h2>
-          <span class="text-xs text-muted">Intelligent IT Service Management (I-ITSM)</span>
-        </div>
-      </div>
+      <img src="/assets/swiftdesk-logo.png" alt="Swiftdesk" class="login-logo" width="572" height="143">
 
       <!-- Login Error Alert (Shown on bad credentials or account lockout) -->
       <div id="login-error-alert" class="alert alert-error hidden"></div>
 
       <form id="form-login" class="space-y-4">
         <div class="form-group">
-          <label class="form-label" for="login-email">Corporate Email Address</label>
-          <input type="email" id="login-email" class="form-input" placeholder="user@nimbusfinserve.com" required autocomplete="username">
+          <label class="form-label login-label" for="login-email">EMAIL ADDRESS</label>
+          <div class="login-field">
+            <svg class="login-field-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" />
+            </svg>
+            <input type="email" id="login-email" class="form-input login-input" placeholder="name@company.com" required autocomplete="username">
+          </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="login-password">Password</label>
-          <input type="password" id="login-password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          <label class="form-label login-label" for="login-password">PASSWORD</label>
+          <div class="login-field">
+            <svg class="login-field-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" />
+            </svg>
+            <input type="password" id="login-password" class="form-input login-input" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" id="btn-login-toggle-password" class="login-eye" aria-label="Show password" aria-pressed="false">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <button type="submit" id="btn-login-submit" class="btn btn-primary w-full" style="padding: 0.65rem 1rem;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-          </svg>
+        <!-- Display only: it has no effect on the session (one session per tab, ADR-047) -->
+        <label class="login-remember" for="login-remember">
+          <input type="checkbox" id="login-remember" class="login-remember-box">
+          <span>Remember me for 30 days</span>
+        </label>
+
+        <button type="submit" id="btn-login-submit" class="btn btn-primary w-full login-submit">
           <span>Sign In</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </button>
       </form>
 
-      <div class="flex items-center justify-between" style="margin-top: 1rem; font-size: 0.8125rem;">
-        <span class="text-dim">New employee?</span>
-        <button type="button" id="btn-toggle-register" class="btn btn-xs btn-secondary">Self-Register</button>
-      </div>
-
-      <!-- Demo Accounts Section (Default visible for evaluation; controlled by /api/public/config) -->
-      <div id="demo-accounts-container" class="demo-pills" style="margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
-        <div class="w-full flex items-center justify-between" style="margin-bottom: 0.5rem;">
-          <span class="text-xs font-bold text-main uppercase font-mono">Nimbus FinServe Corporate Structure</span>
-          <span class="badge badge-status-assigned">Simulated Org</span>
+      <!-- Second sign-in step for an account with two-step verification (ADR-048); shown by app.js -->
+      <form id="form-mfa" class="space-y-4 hidden" autocomplete="off">
+        <p class="text-xs text-muted" style="margin: 0;">Two-step verification: enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+        <div id="mfa-error-alert" class="alert alert-error hidden" role="alert"></div>
+        <div class="form-group">
+          <label class="form-label" for="mfa-code">Verification code</label>
+          <input type="text" id="mfa-code" class="form-input" inputmode="text" autocomplete="one-time-code" maxlength="32" placeholder="123456" required>
         </div>
-        <p class="text-xs text-muted w-full" style="margin-bottom: 0.75rem;">
-          Select any persona to auto-fill credentials and sign in:
-        </p>
-
-        <!-- Executive Leadership -->
-        <div class="text-xs font-semibold text-muted uppercase font-mono" style="margin-bottom: 0.25rem;">Executive &amp; Operations</div>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="ceo@nimbusfinserve.com" data-role="CEO" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>👑 Victoria Sterling <span class="text-dim text-xs">(Chief Executive Officer - VP/C-Level)</span></span>
-          <span class="badge" style="background: var(--warning-subtle); color: var(--warning-text); border: 1px solid var(--warning-border);">CEO</span>
-        </button>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="admin@nimbusfinserve.com" data-role="System Admin" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>⚡ Alexander Vance <span class="text-dim text-xs">(Chief IT Infrastructure Admin)</span></span>
-          <span class="badge" style="background: var(--danger-subtle); color: var(--danger-text); border: 1px solid var(--danger-border);">ADMIN</span>
-        </button>
-
-        <!-- Employee -->
-        <div class="text-xs font-semibold text-muted uppercase font-mono" style="margin-top: 0.5rem; margin-bottom: 0.25rem;">Staff Reporter</div>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="employee@nimbusfinserve.com" data-role="Employee" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>👤 Vikram Malhotra <span class="text-dim text-xs">(Trading Analyst - Retail Banking)</span></span>
-          <span class="badge" style="background: var(--primary-subtle); color: var(--primary); border: 1px solid var(--primary-border);">EMPLOYEE</span>
-        </button>
-
-        <!-- Domain Expert Technicians -->
-        <div class="text-xs font-semibold text-muted uppercase font-mono" style="margin-top: 0.5rem; margin-bottom: 0.25rem;">Domain Expert Technicians</div>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="tech.net2@nimbusfinserve.com" data-role="Technician" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>🌐 Elena Rostova <span class="text-dim text-xs">(Network &bull; <strong>VPN Gateways &amp; DNS Expert</strong>)</span></span>
-          <span class="badge" style="background: var(--primary-subtle); color: var(--primary); border: 1px solid var(--primary-border);">TECH (VPN)</span>
-        </button>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="tech.network@nimbusfinserve.com" data-role="Technician" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>🛡️ David Kim <span class="text-dim text-xs">(Network &bull; <strong>Cisco BGP &amp; Firewalls Expert</strong>)</span></span>
-          <span class="badge" style="background: var(--primary-subtle); color: var(--primary); border: 1px solid var(--primary-border);">TECH (NET)</span>
-        </button>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="tech.db1@nimbusfinserve.com" data-role="Technician" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>🗄️ Priya Patel <span class="text-dim text-xs">(Database &bull; <strong>PostgreSQL &amp; Oracle RAC Expert</strong>)</span></span>
-          <span class="badge" style="background: var(--warning-subtle); color: var(--warning-text); border: 1px solid var(--warning-border);">TECH (DB)</span>
-        </button>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="tech.sec1@nimbusfinserve.com" data-role="Technician" style="padding: 0.45rem 0.75rem; margin-bottom: 0.35rem;">
-          <span>🔒 Carlos Mendez <span class="text-dim text-xs">(Security &bull; <strong>Active Directory &amp; MFA Expert</strong>)</span></span>
-          <span class="badge" style="background: var(--primary-subtle); color: var(--primary); border: 1px solid var(--primary-border);">TECH (SEC)</span>
-        </button>
-
-        <!-- Team Lead -->
-        <div class="text-xs font-semibold text-muted uppercase font-mono" style="margin-top: 0.5rem; margin-bottom: 0.25rem;">Team Leadership</div>
-        <button type="button" class="demo-pill w-full flex items-center justify-between" data-email="lead.network@nimbusfinserve.com" data-role="Team Lead" style="padding: 0.45rem 0.75rem;">
-          <span>👥 Sarah Jenkins <span class="text-dim text-xs">(Network Operations Team Lead)</span></span>
-          <span class="badge" style="background: var(--primary-subtle); color: var(--primary-hover); border: 1px solid var(--primary-border);">TEAM LEAD</span>
-        </button>
-      </div>
+        <div class="flex items-center gap-2">
+          <button type="submit" id="btn-mfa-submit" class="btn btn-primary" style="padding: 0.65rem 1rem;"><span>Verify</span></button>
+          <button type="button" id="btn-mfa-cancel" class="btn btn-secondary">Back</button>
+        </div>
+      </form>
     </div>
 
     <!-- Self-Registration Card (Hidden by default) -->
@@ -188,9 +153,9 @@
           <div class="brand-text">
             <div class="flex items-center">
               <h1>Nimbus FinServe</h1>
-              <span class="brand-badge">I-ITSM 1.0</span>
+              <span class="brand-badge">Swiftdesk 1.0</span>
             </div>
-            <p class="text-xs text-muted" style="display: block;">Intelligent IT Service Management &amp; Automation</p>
+            <p class="text-xs text-muted" style="display: block;">IT Service Management &amp; Automation</p>
           </div>
         </div>
 
@@ -225,6 +190,14 @@
               <div id="user-display-role" class="font-mono text-dim" style="font-size: 0.65rem;">ROLE</div>
             </div>
           </div>
+
+          <!-- Security: two-step verification and sign out everywhere (administrators; ADR-048) -->
+          <button type="button" id="btn-security" class="btn btn-sm btn-secondary hidden" title="Security: two-step verification">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-sm">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Security</span>
+          </button>
 
           <!-- Sign Out -->
           <button type="button" id="btn-logout" class="btn btn-sm btn-secondary" title="Sign Out">
@@ -314,143 +287,146 @@
       <!-- CONSOLE 1: EMPLOYEE PORTAL -->
       <!-- ============================================================== -->
       <section id="console-employee" class="tab-panel active space-y-6">
-        
-        <!-- Privacy Guarantee Banner -->
-        <div class="card" style="background: var(--primary-subtle); border-color: var(--primary-border);">
-          <div class="flex items-start gap-3">
-            <div style="padding: 0.4rem; border-radius: var(--radius-sm); background: #ffffff; color: var(--primary); box-shadow: var(--shadow-sm);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
-            </div>
-            <div>
-              <h4 style="font-size: 0.875rem; font-weight: 700; color: var(--text-main);">Employee Self-Service Privacy Protection</h4>
-              <p class="text-xs text-muted" style="margin-top: 0.15rem;">
-                Internal priority ranks (P1–P4), SLA resolution timers, and private engineering notes are strictly masked from this portal in compliance with corporate privacy policy.
-              </p>
-            </div>
-          </div>
+
+        <!-- Sub-navigation: client-side views of the one ticket list -->
+        <div class="emp-subnav" aria-label="Employee portal views">
+          <button type="button" id="emp-nav-report" class="emp-subnav-btn emp-subnav-report">
+            <span aria-hidden="true">+</span>
+            <span>Report Issue</span>
+          </button>
+          <button type="button" id="emp-nav-active" class="emp-subnav-btn" data-emp-view="active" aria-pressed="true">
+            <span>My Active Tickets</span>
+            <span id="emp-count-active" class="emp-count">0</span>
+          </button>
+          <button type="button" id="emp-nav-history" class="emp-subnav-btn" data-emp-view="history" aria-pressed="false">
+            <span>My History</span>
+            <span id="emp-count-history" class="emp-count">0</span>
+          </button>
         </div>
 
-        <!-- Employee KPIs -->
-        <div class="grid-cols-4">
-          <div class="kpi-card">
-            <span class="kpi-label">My Total Tickets</span>
+        <!-- Employee KPIs: each bar is count / total -->
+        <div class="grid-cols-4 emp-kpis">
+          <div class="kpi-card emp-kpi">
+            <span class="kpi-label">Lifetime reported</span>
             <div id="emp-stat-total" class="kpi-value">0</div>
-            <span class="kpi-subtext">Lifetime reported</span>
+            <div class="emp-kpi-bar" role="progressbar" aria-label="Lifetime reported" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="emp-bar-total" class="emp-kpi-fill emp-fill-total"></span></div>
+            <span id="emp-pct-total" class="kpi-subtext">0% of my tickets</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Active / In Progress</span>
+          <div class="kpi-card emp-kpi">
+            <span class="kpi-label">Active handling</span>
             <div id="emp-stat-active" class="kpi-value text-cyan">0</div>
-            <span class="kpi-subtext">Under technical handling</span>
+            <div class="emp-kpi-bar" role="progressbar" aria-label="Active handling" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="emp-bar-active" class="emp-kpi-fill emp-fill-active"></span></div>
+            <span id="emp-pct-active" class="kpi-subtext">0% of my tickets</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Awaiting Your Info</span>
+          <div class="kpi-card emp-kpi">
+            <span class="kpi-label">Action required</span>
             <div id="emp-stat-pending" class="kpi-value text-amber">0</div>
-            <span class="kpi-subtext">Action required from you</span>
+            <div class="emp-kpi-bar" role="progressbar" aria-label="Action required" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="emp-bar-pending" class="emp-kpi-fill emp-fill-pending"></span></div>
+            <span id="emp-pct-pending" class="kpi-subtext">0% of my tickets</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Resolved / Closed</span>
+          <div class="kpi-card emp-kpi">
+            <span class="kpi-label">Resolved &amp; closed</span>
             <div id="emp-stat-resolved" class="kpi-value text-emerald">0</div>
-            <span class="kpi-subtext">Completed requests</span>
+            <div class="emp-kpi-bar" role="progressbar" aria-label="Resolved and closed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="emp-bar-resolved" class="emp-kpi-fill emp-fill-resolved"></span></div>
+            <span id="emp-pct-resolved" class="kpi-subtext">0% of my tickets</span>
           </div>
         </div>
 
-        <!-- Evaluation Prompt Banner (Shown after logging a ticket) -->
+        <!-- Confirmation shown after logging a ticket -->
         <div id="emp-callout-container"></div>
 
-        <div class="grid-cols-2">
-          
-          <!-- Report Ticket Form -->
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h3 class="card-title">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon text-indigo">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  <span>Report an Incident</span>
-                </h3>
-                <p class="card-subtitle">Submit a request to the IT service desk</p>
-              </div>
-              <span class="badge badge-status-new">Self-Service</span>
+        <div class="emp-layout">
+          <div class="emp-main space-y-6">
+            <!-- Featured ticket -->
+            <div class="card emp-featured-card">
+              <div id="emp-featured" aria-live="polite"></div>
             </div>
 
-            <!-- Quick Fill Templates -->
+            <!-- Ticket list of the active sub-view -->
+            <div class="card">
+              <div class="card-header emp-list-header">
+                <div>
+                  <h3 id="emp-list-title" class="card-title">My Active Tickets</h3>
+                  <p id="emp-list-subtitle" class="card-subtitle">Tickets still being worked on</p>
+                </div>
+                <div class="flex items-center gap-1 flex-wrap">
+                  <button type="button" id="btn-emp-open-history" class="btn btn-xs btn-secondary">
+                    My Ticket History (<span id="emp-history-button-count">0</span> tickets)
+                  </button>
+                  <button type="button" id="btn-refresh-emp-tickets" class="btn btn-xs btn-secondary">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-xs">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+              <div id="emp-tickets-container" class="emp-ticket-list"></div>
+            </div>
+          </div>
+
+          <!-- Live tracking of the featured ticket -->
+          <aside class="card emp-tracking-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Live Ticket Tracking</h3>
+                <p class="card-subtitle">Public progress of the selected ticket</p>
+              </div>
+            </div>
+            <div id="emp-tracking"></div>
+          </aside>
+        </div>
+
+        <!-- Report Ticket Form -->
+        <div id="emp-report-card" class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon text-indigo">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Report an Incident</span>
+              </h3>
+              <p class="card-subtitle">Submit a request to the IT service desk</p>
+            </div>
+            <span class="badge badge-status-new">Self-Service</span>
+          </div>
+
+          <!-- Quick Fill Templates (texts in EMP_TEMPLATES, app.js; the team is the one that handles the category) -->
+          <div class="form-group">
+            <label class="form-label">Demonstration quick-fill templates (the team that will receive the ticket):</label>
+            <div class="flex flex-wrap gap-1">
+              <button type="button" class="template-chip" data-template="vpn">🌐 VPN outage &rarr; Network team</button>
+              <button type="button" class="template-chip" data-template="firewall">🧱 Firewall block &rarr; Network team</button>
+              <button type="button" class="template-chip" data-template="db">🗄️ DB deadlock &rarr; Database &amp; Storage team</button>
+              <button type="button" class="template-chip" data-template="payment">💳 Payment portal &rarr; Application team</button>
+              <button type="button" class="template-chip" data-template="sso">🔒 SSO/MFA login &rarr; Security team</button>
+              <button type="button" class="template-chip" data-template="display">💻 Display flickering &rarr; Service Desk</button>
+            </div>
+          </div>
+
+          <form id="form-create-incident" class="space-y-4">
             <div class="form-group">
-              <label class="form-label">Demonstration Quick-Fill Templates (Routes to Domain Specialists):</label>
-              <div class="flex flex-wrap gap-1">
-                <button type="button" class="template-chip" data-template="vpn" title="Routes to Elena Rostova (VPN Gateways)">🌐 VPN Outage &rarr; Elena Rostova</button>
-                <button type="button" class="template-chip" data-template="firewall" title="Routes to David Kim (Firewalls & BGP)">🛡️ Firewall Block &rarr; David Kim</button>
-                <button type="button" class="template-chip" data-template="db" title="Routes to Priya Patel (Core Banking DB)">🗄️ DB Deadlock &rarr; Priya Patel</button>
-                <button type="button" class="template-chip" data-template="payment" title="Tier 4 Mission Critical Gateway">💳 Payment Gateway (Tier 4)</button>
-                <button type="button" class="template-chip" data-template="sso" title="Routes to Carlos Mendez (Security & MFA)">🔒 SSO/MFA Lockout &rarr; Carlos Mendez</button>
-                <button type="button" class="template-chip" data-template="display" title="Routes to Jordan Bell (Service Desk)">💻 Laptop Display &rarr; Jordan Bell</button>
+              <label class="form-label" for="emp-inc-title">Summary / Short Title</label>
+              <input type="text" id="emp-inc-title" class="form-input" required minlength="5" maxlength="120" placeholder="e.g. VPN tunnel disconnects during wire transfer">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="emp-inc-desc">Detailed Description</label>
+              <textarea id="emp-inc-desc" class="form-textarea" required minlength="20" maxlength="4000" rows="4" placeholder="Describe the issue, workstation location, error codes, and symptoms..."></textarea>
+              <div class="flex justify-between items-center text-xs text-dim" style="margin-top: 0.25rem;">
+                <span>Min 20 characters</span>
+                <span id="desc-char-count" class="font-mono">0 / 4000</span>
               </div>
             </div>
 
-            <form id="form-create-incident" class="space-y-4">
-              <div class="form-group">
-                <label class="form-label" for="emp-inc-title">Summary / Short Title</label>
-                <input type="text" id="emp-inc-title" class="form-input" required minlength="5" maxlength="120" placeholder="e.g. VPN tunnel disconnects during wire transfer">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="emp-inc-desc">Detailed Description</label>
-                <textarea id="emp-inc-desc" class="form-textarea" required minlength="20" maxlength="4000" rows="4" placeholder="Describe the issue, workstation location, error codes, and symptoms..."></textarea>
-                <div class="flex justify-between items-center text-xs text-dim" style="margin-top: 0.25rem;">
-                  <span>Min 20 characters</span>
-                  <span id="desc-char-count" class="font-mono">0 / 4000</span>
-                </div>
-              </div>
-
-              <!-- AI Classification Preview -->
-              <div id="emp-ai-preview" class="card" style="background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem;">
-                <div class="flex items-center gap-1.5 font-bold text-xs" style="color: var(--primary); margin-bottom: 0.4rem;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-sm">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                  </svg>
-                  <span>AI Pre-Classification Engine</span>
-                </div>
-                <div class="flex items-center justify-between text-xs text-muted" style="margin-bottom: 0.2rem;">
-                  <span>Detected Domain:</span>
-                  <span id="preview-category" class="font-mono font-bold text-main">GENERAL</span>
-                </div>
-                <div class="flex items-center justify-between text-xs text-muted">
-                  <span>Routing Service:</span>
-                  <span id="preview-service" class="font-mono text-cyan">SVC-GENERAL</span>
-                </div>
-              </div>
-
-              <button type="submit" id="btn-submit-incident" class="btn btn-primary w-full">
-                <span>Submit Incident Ticket</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-                </svg>
-              </button>
-            </form>
-          </div>
-
-          <!-- My Raised Tickets List -->
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h3 class="card-title">My Incident Tickets</h3>
-                <p class="card-subtitle">Real-time status tracking with visual lifecycle stepper</p>
-              </div>
-              <button type="button" id="btn-refresh-emp-tickets" class="btn btn-xs btn-secondary">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-xs">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                <span>Refresh</span>
-              </button>
-            </div>
-
-            <div id="emp-tickets-container" class="space-y-4" style="min-height: 380px;">
-              <div class="text-center text-muted" style="padding: 3rem 1rem;">Loading your tickets...</div>
-            </div>
-          </div>
-
+            <button type="submit" id="btn-submit-incident" class="btn btn-primary w-full">
+              <span>Submit Incident Ticket</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+            </button>
+          </form>
         </div>
       </section>
 
@@ -458,74 +434,81 @@
       <!-- CONSOLE 2: TECHNICIAN CONSOLE -->
       <!-- ============================================================== -->
       <section id="console-technician" class="tab-panel space-y-6">
-        
-        <!-- Technician Workload & Capacity Banner -->
-        <div class="card">
-          <div class="flex items-center justify-between flex-wrap gap-2">
+
+        <!-- Technician portal (ADR-051): capacity, metrics, spotlight, queue. Styles are the tp- block of styles.css. -->
+
+        <!-- Workload & capacity banner -->
+        <div class="tp-capacity">
+          <div class="tp-capacity-head">
             <div>
-              <span class="text-xs text-muted font-bold uppercase tracking-wider">Assigned Capacity &amp; Workload</span>
-              <h3 id="tech-capacity-text" class="text-lg font-bold text-main font-mono" style="margin-top: 0.15rem;">0 / 7 Active Tickets (0%)</h3>
+              <span class="tp-eyebrow">Assigned Capacity &amp; Workload</span>
+              <h3 id="tech-capacity-text" class="tp-capacity-text">0 / 7 Active Tickets (0%)</h3>
             </div>
-            <div id="tech-capacity-status" class="badge badge-status-resolved">Available</div>
+            <div id="tech-capacity-status" class="tp-load-badge tp-load-badge--ok">Available</div>
           </div>
-          <div class="capacity-bar">
-            <div id="tech-capacity-fill" class="capacity-fill" style="width: 0%;"></div>
+          <div id="tp-capacity-bar" class="tp-bar" role="progressbar" aria-label="Workload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="tech-capacity-fill" class="tp-bar-fill"></div>
           </div>
         </div>
 
-        <!-- Metric Ribbon -->
-        <div class="grid-cols-4">
-          <div class="kpi-card">
-            <span class="kpi-label">Assigned to Me</span>
-            <div id="tech-stat-assigned" class="kpi-value">0</div>
-            <span class="kpi-subtext">Active queue</span>
+        <!-- Metric ribbon -->
+        <div class="tp-kpi-grid">
+          <div class="tp-kpi">
+            <span class="tp-kpi-label">Assigned to Me</span>
+            <div id="tech-stat-assigned" class="tp-kpi-value">0</div>
+            <span class="tp-kpi-sub">Active queue</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Under Investigation</span>
-            <div id="tech-stat-investigating" class="kpi-value text-cyan">0</div>
-            <span class="kpi-subtext">In-flight work</span>
+          <div class="tp-kpi tp-kpi--blue">
+            <span class="tp-kpi-label">Under Investigation</span>
+            <div id="tech-stat-investigating" class="tp-kpi-value tp-kpi-value--blue">0</div>
+            <span class="tp-kpi-sub">In-flight work</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Waiting on User Info</span>
-            <div id="tech-stat-pending" class="kpi-value text-amber">0</div>
-            <span class="kpi-subtext">SLA clock paused</span>
+          <div class="tp-kpi tp-kpi--amber">
+            <span class="tp-kpi-label">Waiting on User Info</span>
+            <div id="tech-stat-pending" class="tp-kpi-value tp-kpi-value--amber">0</div>
+            <span class="tp-kpi-sub">SLA clock paused</span>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">At-Risk SLA</span>
-            <div id="tech-stat-atrisk" class="kpi-value text-red">0</div>
-            <span class="kpi-subtext">&gt; 75% SLA consumed</span>
+          <div class="tp-kpi tp-kpi--red">
+            <span class="tp-kpi-label">At-Risk SLA</span>
+            <div id="tech-stat-atrisk" class="tp-kpi-value tp-kpi-value--red">0</div>
+            <span class="tp-kpi-sub">&gt; 75% SLA consumed</span>
           </div>
         </div>
 
-        <!-- Work Queue -->
-        <div class="card">
-          <div class="card-header">
+        <!-- Spotlight: the technician's most urgent ticket in progress. Filled and shown by the script; hidden when there is none. -->
+        <div id="tp-spotlight" class="tp-spotlight" hidden aria-live="polite"></div>
+
+        <!-- Work queue -->
+        <div class="tp-queue">
+          <div class="tp-queue-head">
             <div>
-              <h3 class="card-title">Assigned Incident Queue</h3>
-              <p class="card-subtitle">Prioritized by Urgency and SLA Deadline Risk</p>
+              <h3 class="tp-queue-title">Assigned Incident Queue</h3>
+              <p class="tp-queue-sub">Prioritized by Urgency and SLA Deadline Risk</p>
             </div>
-            <div class="flex items-center gap-2">
-              <div style="display: flex; gap: 0.25rem;">
-                <button type="button" id="btn-tech-mode-my" class="btn btn-xs btn-primary">👤 Assigned to Me</button>
-                <button type="button" id="btn-tech-mode-team" class="btn btn-xs btn-secondary">👥 Team Queue</button>
+            <div class="tp-queue-controls">
+              <div class="tp-seg" role="group" aria-label="Queue view">
+                <button type="button" id="btn-tech-mode-my" class="tp-seg-btn" aria-pressed="true">Assigned to Me</button>
+                <button type="button" id="btn-tech-mode-team" class="tp-seg-btn" aria-pressed="false" title="Tickets of your team that nobody has taken yet">Unassigned Team Tickets</button>
               </div>
-              <select id="tech-queue-filter" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                <option value="ALL">All Active Tickets</option>
+              <select id="tech-queue-filter" class="tp-select" aria-label="Filter tickets by status">
+                <option value="ALL">All Tickets (Active &amp; Solved)</option>
                 <option value="ASSIGNED">Assigned (New)</option>
                 <option value="ACKNOWLEDGED">Acknowledged</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="PENDING_INFO">Waiting on User</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="CLOSED">Closed</option>
               </select>
-              <button type="button" id="btn-refresh-tech-queue" class="btn btn-sm btn-secondary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon-sm">
+              <button type="button" id="btn-refresh-tech-queue" class="tp-icon-btn" aria-label="Refresh queue" title="Refresh queue">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
               </button>
             </div>
           </div>
 
-          <div id="tech-queue-container" class="space-y-4" style="min-height: 380px;">
-            <div class="text-center text-muted" style="padding: 3rem 1rem;">Loading assigned queue...</div>
+          <div id="tech-queue-container" class="tp-queue-body">
+            <div class="tp-empty">Loading assigned queue...</div>
           </div>
         </div>
 
@@ -542,7 +525,10 @@
               <h3 class="card-title">Team Capacity &amp; Member Roster</h3>
               <p class="card-subtitle">Real-time workload distribution and active tickets per technician</p>
             </div>
-            <button type="button" id="btn-refresh-teamlead" class="btn btn-xs btn-secondary">Refresh</button>
+            <div class="flex items-center gap-2">
+              <span id="teamlead-updated" class="text-xs text-dim"></span>
+              <button type="button" id="btn-refresh-teamlead" class="btn btn-xs btn-secondary">Refresh</button>
+            </div>
           </div>
 
           <div id="teamlead-roster-grid" class="grid-cols-3">
@@ -555,11 +541,8 @@
           <div class="card-header">
             <div>
               <h3 class="card-title">Unassigned Team Queue</h3>
-              <p class="card-subtitle">Incidents classified into your domain waiting for technician assignment</p>
+              <p class="card-subtitle">Open tickets of your team with no technician. Confident ones are assigned automatically within about 30 seconds; tickets in triage wait for an administrator. You can assign one yourself.</p>
             </div>
-            <button type="button" id="btn-auto-dispatch" class="btn btn-sm btn-primary">
-              <span>Auto-Dispatch All</span>
-            </button>
           </div>
 
           <div id="teamlead-unassigned-container" class="space-y-3">
@@ -567,7 +550,7 @@
           </div>
         </div>
 
-        <!-- Tier 2 SLA Escalation Monitor -->
+        <!-- SLA Escalation Monitor (open tickets at risk or breached) -->
         <div class="card" style="border-color: rgba(245, 158, 11, 0.4);">
           <div class="card-header">
             <div>
@@ -575,14 +558,14 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="icon text-amber">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
-                <span>Tier 2 SLA Escalation Monitor (&gt; 90% Threshold)</span>
+                <span>SLA Escalation Monitor (At Risk or Breached)</span>
               </h3>
-              <p class="card-subtitle">Critical tickets nearing or breaching SLA deadlines requiring supervisory intervention</p>
+              <p class="card-subtitle">Open tickets nearing or past their SLA deadline; finished tickets are not listed</p>
             </div>
           </div>
 
           <div id="teamlead-escalation-container" class="space-y-3">
-            <div class="text-center text-muted" style="padding: 2rem 1rem;">All team tickets within safe SLA thresholds.</div>
+            <div class="text-center text-muted" style="padding: 2rem 1rem;">No open team ticket is at risk of, or past, its SLA deadline.</div>
           </div>
         </div>
 
@@ -633,26 +616,108 @@
                 <p class="card-subtitle">Search, filter, inspect, and override incident lifecycles</p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <input type="text" id="admin-search-text" class="form-input" style="width: 180px; padding: 0.35rem 0.65rem; font-size: 0.75rem;" placeholder="Search title or ID...">
-                <select id="admin-filter-category" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                  <option value="">All Categories</option>
-                  <option value="HARDWARE">HARDWARE</option>
-                  <option value="SOFTWARE">SOFTWARE</option>
-                  <option value="NETWORK">NETWORK</option>
-                  <option value="DATABASE">DATABASE</option>
-                  <option value="SECURITY">SECURITY</option>
-                  <option value="CLOUD">CLOUD</option>
-                  <option value="ACCESS">ACCESS</option>
-                  <option value="APPLICATION">APPLICATION</option>
+                <input type="text" id="admin-search-text" class="form-input" style="width: 180px; padding: 0.35rem 0.65rem; font-size: 0.75rem;" placeholder="Search title, ID or ticket name...">
+                <!-- Multi-select filters: option values are IncidentCategory / Priority enum names -->
+                <div class="custom-multiselect" id="multiselect-category" data-all-label="All Categories">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All Categories</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="Categories">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="HARDWARE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">HARDWARE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="SOFTWARE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">SOFTWARE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="NETWORK"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">NETWORK</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="DATABASE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">DATABASE</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="CLOUD"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">CLOUD</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="SECURITY"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">SECURITY</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="AUTHENTICATION"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">AUTHENTICATION</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="APPLICATION"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">APPLICATION</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="STORAGE"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">STORAGE</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-multiselect" id="multiselect-priority" data-all-label="All Priorities">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All Priorities</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="Priorities">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P1"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P1 (Critical)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P2"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P2 (High)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P3"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P3 (Medium)</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="P4"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">P4 (Low)</span></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- ADR-049: status and SLA option values are IncidentStatus / SlaStatus enum names -->
+                <div class="custom-multiselect" id="multiselect-status" data-all-label="All Statuses">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All Statuses</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="Statuses">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="NEW"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">NEW</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="CLASSIFIED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">CLASSIFIED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="ASSIGNED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">ASSIGNED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="ACKNOWLEDGED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">ACKNOWLEDGED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="IN_PROGRESS"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">IN_PROGRESS</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="PENDING_INFO"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">PENDING_INFO</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="RESOLVED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">RESOLVED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="VERIFIED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">VERIFIED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="CLOSED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">CLOSED</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-multiselect" id="multiselect-sla" data-all-label="All SLA States">
+                  <button type="button" class="multiselect-trigger btn btn-sm btn-secondary" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="trigger-label">All SLA States</span>
+                    <span class="trigger-caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <div class="multiselect-menu hidden">
+                    <div class="multiselect-header">
+                      <button type="button" class="btn-select-all text-xs text-cyan">Select All</button>
+                      <button type="button" class="btn-clear-all text-xs text-muted">Clear</button>
+                    </div>
+                    <div class="multiselect-options" role="listbox" aria-multiselectable="true" aria-label="SLA states">
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="ON_TRACK"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">ON_TRACK</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="AT_RISK"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">AT_RISK</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="WARNING"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">WARNING</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="BREACHED"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">BREACHED</span></div>
+                      <div class="multiselect-option" role="option" tabindex="-1" aria-selected="false" data-value="MET"><span class="custom-checkbox" aria-hidden="true"></span><span class="option-label">MET</span></div>
+                    </div>
+                  </div>
+                </div>
+                <select id="admin-filter-service" class="form-select admin-filter-control" aria-label="IT service">
+                  <option value="">All services</option>
                 </select>
-                <select id="admin-filter-priority" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.75rem;">
-                  <option value="">All Priorities</option>
-                  <option value="P1">P1 (Critical)</option>
-                  <option value="P2">P2 (High)</option>
-                  <option value="P3">P3 (Medium)</option>
-                  <option value="P4">P4 (Low)</option>
+                <select id="admin-filter-technician" class="form-select admin-filter-control" aria-label="Technician">
+                  <option value="">All technicians</option>
                 </select>
+                <label class="admin-filter-date">
+                  <span class="text-xs text-muted">Created from</span>
+                  <input type="date" id="admin-filter-from" class="form-input admin-filter-control" aria-label="Created from">
+                </label>
+                <label class="admin-filter-date">
+                  <span class="text-xs text-muted">Created to</span>
+                  <input type="date" id="admin-filter-to" class="form-input admin-filter-control" aria-label="Created to">
+                </label>
                 <button type="button" id="btn-admin-search" class="btn btn-sm btn-secondary">Filter</button>
+                <button type="button" id="btn-admin-clear-filters" class="btn btn-sm btn-secondary">Clear</button>
               </div>
             </div>
 
@@ -665,13 +730,14 @@
                     <th>Category</th>
                     <th>Priority</th>
                     <th>Status</th>
+                    <th>SLA</th>
                     <th>Assignee</th>
                     <th>SLA Deadline</th>
                     <th class="text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody id="admin-incidents-tbody">
-                  <tr><td colspan="8" class="text-center text-muted" style="padding: 2.5rem 1rem;">Loading enterprise incidents...</td></tr>
+                  <tr><td colspan="9"class="text-center text-muted" style="padding: 2.5rem 1rem;">Loading enterprise incidents...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -764,6 +830,40 @@
               <span class="kpi-subtext">Instant epoch advance</span>
             </div>
           </div>
+        </div>
+
+        <!-- Assignment strategy comparison (ADR-044, Phase L3) -->
+        <div class="card" id="strategy-comparison-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">
+                <span>Assignment Strategy Comparison</span>
+              </h3>
+              <p class="card-subtitle">Replays one seeded synthetic ticket stream through every assignment strategy in memory and compares mean time to resolve, SLA breaches and fairness. Nothing is saved, sent or changed.</p>
+            </div>
+          </div>
+
+          <form id="form-strategy-comparison" class="cmp-form" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="cmp-seed">Seed</label>
+              <input type="number" id="cmp-seed" class="form-input" value="42" step="1" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="cmp-tickets">Tickets per run</label>
+              <input type="number" id="cmp-tickets" class="form-input" value="500" min="1" max="5000" step="1" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="cmp-replications">Replications</label>
+              <input type="number" id="cmp-replications" class="form-input" value="10" min="1" max="50" step="1" inputmode="numeric">
+            </div>
+            <button type="submit" id="btn-run-comparison" class="btn btn-sm btn-primary">Run comparison</button>
+          </form>
+          <p class="cmp-hint">Tickets 1 to 5000, replications 1 to 50, at most 25,000 tickets in all. The same seed always gives the same result.</p>
+
+          <div id="cmp-status" class="cmp-status hidden" role="status" aria-live="polite"></div>
+          <div id="cmp-notice" class="cmp-notice hidden"></div>
+          <div id="cmp-results" class="table-container hidden"></div>
+          <div id="cmp-assumptions" class="hidden"></div>
         </div>
 
         <div class="grid-cols-2">
@@ -951,22 +1051,110 @@
 
     </main>
 
-    <!-- Footer -->
-    <footer style="background: var(--bg-surface); border-top: 1px solid var(--border); padding: 1rem 1.25rem; margin-top: 2rem;">
-      <div class="max-w-7xl flex items-center justify-between flex-wrap gap-2 text-xs text-dim">
-        <span>CS F213 Object-Oriented Programming &mdash; Nimbus FinServe I-ITSM</span>
-        <span class="font-mono">Hexagonal Architecture &middot; Pure Domain Core &middot; 8 Design Patterns &middot; Injectable Clock</span>
-      </div>
-    </footer>
-
   </div>
 
   <!-- ============================================================== -->
   <!-- ACTION MODALS (Single dynamic overlay) -->
   <!-- ============================================================== -->
+  <!-- The Security dialog (#security-modal, section 18 of app.js) is drawn into this shared dialog: Tab trap and the
+       return of keyboard focus to the opener come from openModal / closeModal. -->
   <div id="modal-container" class="modal-overlay hidden">
     <div id="modal-content" class="modal-content">
       <!-- Populated dynamically by app.js -->
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- ADMIN TICKET INSPECTION DIALOG (populated by app.js) -->
+  <!-- ============================================================== -->
+  <div id="admin-ticket-detail-modal" class="modal-overlay ticket-detail-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ticket-detail-title">
+    <div class="ticket-detail-dialog">
+      <header class="ticket-detail-header">
+        <div class="ticket-detail-heading">
+          <div class="flex items-center flex-wrap gap-2">
+            <span id="ticket-detail-id" class="font-mono font-bold text-cyan text-sm"></span>
+            <span id="ticket-detail-display-name" class="ticket-display-name" title="Ticket name with its current priority"></span>
+            <div id="ticket-detail-pills" class="flex items-center flex-wrap gap-2"></div>
+          </div>
+          <h2 id="ticket-detail-title" class="ticket-detail-title"></h2>
+        </div>
+        <button type="button" id="btn-close-ticket-detail" class="btn btn-xs btn-secondary" aria-label="Close ticket details">&#10005;</button>
+      </header>
+
+      <div id="ticket-detail-body" class="ticket-detail-body">
+        <div id="ticket-detail-loading" class="td-state text-muted">Loading ticket details...</div>
+        <div id="ticket-detail-error" class="td-state text-red hidden"></div>
+
+        <div id="ticket-detail-content" class="hidden">
+          <section class="td-section td-section-first">
+            <h3 class="td-section-title">Description</h3>
+            <p id="td-description" class="td-description"></p>
+          </section>
+
+          <div class="td-grid">
+            <section class="td-card">
+              <h3 class="td-card-title">Reporter</h3>
+              <dl id="td-reporter" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">IT Service &amp; Criticality</h3>
+              <dl id="td-service" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">Support Team &amp; Technician</h3>
+              <dl id="td-assignment" class="td-dl"></dl>
+            </section>
+            <section class="td-card">
+              <h3 class="td-card-title">Lifecycle Timestamps</h3>
+              <dl id="td-lifecycle" class="td-dl"></dl>
+            </section>
+          </div>
+
+          <section class="td-section">
+            <h3 class="td-section-title">SLA Tracking &amp; Risk</h3>
+            <div id="td-sla"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Priority Calculation Matrix</h3>
+            <div id="td-priority-summary" class="td-priority-summary"></div>
+            <div id="td-priority-factors" class="table-container"></div>
+            <div id="td-priority-overrides"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Why This Technician</h3>
+            <div id="td-assignment-why"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Investigation Notes &amp; Resolution</h3>
+            <div id="td-notes"></div>
+            <div id="td-resolution"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Customer Feedback</h3>
+            <div id="td-feedback"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Linked Tickets &amp; Triage</h3>
+            <div id="td-linked"></div>
+          </section>
+
+          <section class="td-section">
+            <h3 class="td-section-title">Audit Trail</h3>
+            <div id="td-audit"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer class="ticket-detail-footer">
+        <button type="button" id="btn-ticket-detail-override" class="btn btn-sm btn-secondary">Override Priority</button>
+        <button type="button" id="btn-ticket-detail-reassign" class="btn btn-sm btn-secondary">Reassign</button>
+        <button type="button" id="btn-ticket-detail-close" class="btn btn-sm btn-primary">Close</button>
+      </footer>
     </div>
   </div>
 
@@ -992,6 +1180,6 @@
   <div id="toast-container"></div>
 
   <!-- Application Logic (Self-Contained Vanilla ES6, CSP Compliant) -->
-  <script src="/app.js?v=3.0"></script>
+  <script src="/app.js?v=5.6"></script>
 </body>
 </html>

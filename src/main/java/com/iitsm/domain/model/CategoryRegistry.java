@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CategoryRegistry {
 
     // ConcurrentHashMap chosen for thread-safe dynamic registry reads and runtime additions
+    // Collections: ConcurrentHashMap for a registry that several threads read and write.
     private final Map<String, String> registeredCategories = new ConcurrentHashMap<>();
 
     public CategoryRegistry() {

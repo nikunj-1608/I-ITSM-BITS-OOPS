@@ -1,0 +1,150 @@
+@startuml assignment-strategy-comparison
+' Offline assignment strategy comparison (spec feature D, ADR-044, Phase L3).
+' A pure in-memory discrete-event simulation: it reads the roster once, writes nothing, publishes nothing, reads no clock.
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "web" {
+  class SimulationController {
+    +compareStrategies(StrategyComparisonRequest) : StrategyComparisonResponse
+    <<POST /api/simulation/strategy-comparison, ADMIN only>>
+  }
+  class StrategyComparisonRequest <<record>> {
+    seed, ticketCount, replications
+    arrivalsPerHour, strategies  (all optional)
+  }
+  class StrategyComparisonResponse <<record>>
+  class StrategyComparisonMapper <<Mapper>>
+  class "app.js section 17" as Panel <<browser>> {
+    runStrategyComparison()
+    renderStrategyComparison(data)
+  }
+}
+
+package "application.service" {
+  class StrategyComparisonService <<Facade>> {
+    +compare(seed, tickets, replications, rate, names) : ComparisonRun
+    reads roster, owning teams, SLA targets once (read-only transaction)
+    sorts the roster by id
+  }
+}
+
+package "domain.simulation.assignment (pure Java)" {
+  class ComparisonParameters <<record>> {
+    defaults 42 / 500 / 10 / 15 per hour
+    bounds 5000 / 50 / 25,000 product
+    +of(...) throws ValidationException
+  }
+  class StrategyComparison <<Template>> {
+    +run(parameters, pool, strategies, targets) : ComparisonReport
+    SplittableRandom(seed).split() per replication
+    strategy.freshInstance() per replay
+  }
+  class TicketStreamGenerator <<Factory>> {
+    +generate(random, count, rate, servable)
+    +prepare(stream, start) : List<PreparedTicket>
+  }
+  class WorkTimeModel {
+    base x category x skill x experience x concurrency x noise
+    +serviceTime(ticket, technician, inService)
+    +assumptions()
+  }
+  class StrategyReplay <<discrete-event engine>> {
+    event PriorityQueue (completion before arrival)
+    waiting PriorityQueue per category (urgent first)
+    +run(strategy, tickets, start) : ReplayResult
+  }
+  class ReplayMetrics {
+    +of(result, targets) : Map<ComparisonMetric, Double>
+  }
+  class ReplicationStatistics {
+    +summarize(values)
+    +pairedDifference(values, reference)
+    t 95 %
+  }
+  class GiniCoefficient
+  class SimulationPool <<record>> {
+    technicians : List<TechnicianProfile>
+    owningTeamByCategory
+    +syntheticDefault()
+    +fromRoster(...)
+  }
+  class TechnicianProfile <<record>> {
+    +of(Technician) copies by value
+    +toTechnician() fresh, empty
+  }
+  class SyntheticTicket <<record>>
+  class PreparedTicket <<record>> {
+    in-memory Incident SIM-000001
+  }
+  class ReplayResult <<record>>
+  class ReplayedTicket <<record>>
+  class ComparisonReport <<record>> {
+    strategies, winners, assumptions
+  }
+  class StrategyReport <<record>> {
+    perReplication, summaries, versusReference
+  }
+  enum ComparisonMetric {
+    MEAN_TIME_TO_RESOLVE
+    P95_TIME_TO_RESOLVE
+    SLA_BREACH_RATE
+    MEAN_WAIT
+    MAX_QUEUE_LENGTH
+    UNSKILLED_SHARE
+    TICKETS_GINI
+    BUSY_TIME_GINI
+  }
+}
+
+package "domain.strategy.assignment (existing)" {
+  interface AssignmentStrategy <<Strategy>> {
+    +recommend(...)
+    +freshInstance()
+  }
+  class AssignmentStrategyRegistry {
+    +getAllStrategies()  (read only)
+  }
+  class CandidateFilter {
+    +route(...) : RoutedCandidates
+  }
+}
+
+SimulationController --> StrategyComparisonService
+SimulationController ..> StrategyComparisonMapper
+Panel ..> SimulationController : POST
+StrategyComparisonService --> AssignmentStrategyRegistry : getAllStrategies()
+StrategyComparisonService --> ComparisonParameters
+StrategyComparisonService --> SimulationPool
+StrategyComparisonService --> StrategyComparison
+StrategyComparison --> TicketStreamGenerator
+StrategyComparison --> StrategyReplay
+StrategyComparison --> ReplayMetrics
+StrategyComparison --> ReplicationStatistics
+StrategyComparison ..> ComparisonReport
+ComparisonReport *--> "1..*" StrategyReport
+StrategyReplay --> WorkTimeModel
+StrategyReplay --> CandidateFilter : the live routing rule (ADR-036)
+StrategyReplay --> AssignmentStrategy : recommend() on a fresh instance
+StrategyReplay ..> ReplayResult
+ReplayResult *--> "n" ReplayedTicket
+TicketStreamGenerator --> WorkTimeModel : noise
+TicketStreamGenerator ..> SyntheticTicket
+TicketStreamGenerator ..> PreparedTicket
+ReplayMetrics --> GiniCoefficient
+SimulationPool *--> "1..*" TechnicianProfile
+StrategyReplay --> SimulationPool
+
+note right of StrategyComparison
+  Common random numbers: one stream per
+  replication, replayed through every strategy.
+  Same seed = equal report (no timing inside).
+end note
+
+note bottom of StrategyComparisonService
+  No writing repository, no event publisher,
+  no notification, no clock, no setActiveStrategy.
+  Run time via System.nanoTime().
+end note
+
+@enduml

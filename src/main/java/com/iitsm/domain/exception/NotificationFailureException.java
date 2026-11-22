@@ -1,5 +1,6 @@
 package com.iitsm.domain.exception;
 
+// OOP (Inheritance, IS-A): NotificationFailureException is a kind of IitsmException, so one central handler can catch it and map it to a stable error code.
 /**
  * OOP: Thrown when an individual notification channel delivery fails.
  * Logged and audited; never rolls back business transactions.

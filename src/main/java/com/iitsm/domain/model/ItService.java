@@ -12,6 +12,10 @@ import java.util.Set;
  */
 public class ItService {
 
+    /** The catch-all service a ticket gets when no service matches; it only carries criticality and SLA (ADR-036). */
+    public static final String GENERAL_SERVICE_ID = "SRV-GEN-001";
+
+
     private final String id;
     private final String name;
     private String owningTeamId;
@@ -64,6 +68,7 @@ public class ItService {
     }
 
     public Set<String> getKeywords() {
+        // OOP (Encapsulation): defensive copy or view, so callers cannot change the service's keywords.
         return Collections.unmodifiableSet(keywords);
     }
 

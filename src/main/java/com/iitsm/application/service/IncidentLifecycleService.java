@@ -16,6 +16,7 @@ import com.iitsm.domain.model.ReassignmentRequest;
 import com.iitsm.domain.model.Resolution;
 import com.iitsm.domain.model.SlaStatus;
 import com.iitsm.domain.model.Technician;
+import com.iitsm.domain.model.TicketDisplayName;
 import com.iitsm.domain.model.User;
 import com.iitsm.domain.policy.AccessPolicy;
 import com.iitsm.domain.repository.IncidentRepository;
@@ -32,6 +33,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +53,16 @@ public class IncidentLifecycleService {
     private final ReassignmentRequestRepository reassignmentRequestRepository;
     private final DomainEventPublisher eventPublisher;
     private final AccessPolicy accessPolicy;
+    private final SlaService slaService;
+    private final TicketRouter ticketRouter;
     private final Clock clock;
+
+    /**
+     * Feature flag – when {@code true} the technician queue includes RESOLVED and CLOSED
+     * tickets so that solved tickets remain visible after resolution.
+     * Controlled via {@code iitsm.show-solved-tickets} in application.yml.
+     */
+    private final boolean showSolvedTickets;
 
     public IncidentLifecycleService(
             IncidentRepository incidentRepository,
@@ -61,7 +72,26 @@ public class IncidentLifecycleService {
             ReassignmentRequestRepository reassignmentRequestRepository,
             DomainEventPublisher eventPublisher,
             AccessPolicy accessPolicy,
+            SlaService slaService,
+            TicketRouter ticketRouter,
             Clock clock) {
+        this(incidentRepository, userRepository, technicianRepository, itServiceRepository,
+                reassignmentRequestRepository, eventPublisher, accessPolicy, slaService, ticketRouter, clock, true);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public IncidentLifecycleService(
+            IncidentRepository incidentRepository,
+            UserRepository userRepository,
+            TechnicianRepository technicianRepository,
+            ItServiceRepository itServiceRepository,
+            ReassignmentRequestRepository reassignmentRequestRepository,
+            DomainEventPublisher eventPublisher,
+            AccessPolicy accessPolicy,
+            SlaService slaService,
+            TicketRouter ticketRouter,
+            Clock clock,
+            @Value("${iitsm.show-solved-tickets:true}") boolean showSolvedTickets) {
         this.incidentRepository = Objects.requireNonNull(incidentRepository, "incidentRepository cannot be null");
         this.userRepository = Objects.requireNonNull(userRepository, "userRepository cannot be null");
         this.technicianRepository = Objects.requireNonNull(technicianRepository, "technicianRepository cannot be null");
@@ -69,7 +99,10 @@ public class IncidentLifecycleService {
         this.reassignmentRequestRepository = Objects.requireNonNull(reassignmentRequestRepository, "reassignmentRequestRepository cannot be null");
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher cannot be null");
         this.accessPolicy = Objects.requireNonNull(accessPolicy, "accessPolicy cannot be null");
+        this.slaService = Objects.requireNonNull(slaService, "slaService cannot be null");
+        this.ticketRouter = Objects.requireNonNull(ticketRouter, "ticketRouter cannot be null");
         this.clock = Objects.requireNonNull(clock, "clock cannot be null");
+        this.showSolvedTickets = showSolvedTickets;
     }
 
     public Incident getIncident(String actorIdOrEmail, String incidentId) {
@@ -91,19 +124,22 @@ public class IncidentLifecycleService {
     @Transactional(readOnly = true)
     public List<Incident> getTechnicianQueue(String technicianIdOrEmail) {
         User technician = loadUser(technicianIdOrEmail);
+        // When showSolvedTickets is true (the default) all incidents assigned to the
+        // technician are returned – including RESOLVED and CLOSED – so that solved
+        // tickets remain visible in the UI instead of disappearing after resolution.
+        // When the flag is false the historical behaviour (active tickets only) is kept.
         return incidentRepository.findByAssigneeId(technician.getId()).stream()
-                .filter(i -> i.getStatus() != IncidentStatus.CLOSED)
+                .filter(i -> showSolvedTickets || i.getStatus() != IncidentStatus.CLOSED)
                 .sorted(IncidentUrgencyOrdering.INSTANCE)
                 .collect(Collectors.toList());
     }
 
+    /** The team that owns the ticket: the one that handles its category (ADR-036). */
     public String resolveOwningTeamId(Incident incident) {
-        if (incident == null || incident.getServiceId() == null) {
+        if (incident == null) {
             return null;
         }
-        return itServiceRepository.findById(incident.getServiceId())
-                .map(ItService::getOwningTeamId)
-                .orElse(null);
+        return ticketRouter.owningTeamId(incident).orElse(null);
     }
 
     public Incident acknowledge(String incidentId, String technicianId) {
@@ -112,11 +148,16 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.ACKNOWLEDGE, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.acknowledge(technicianId, now);
+        SlaStatus previousSla = incident.getSlaTracker() != null ? incident.getSlaTracker().getStatus() : null;
+        incident.acknowledge(actor.getId(), now);
         Incident saved = incidentRepository.save(incident);
+        // A late acknowledgement is a response breach: announce it here, the scan would see "no change" (ADR-030)
+        if (previousSla != null) {
+            slaService.announceTransition(saved, previousSla, now);
+        }
 
         eventPublisher.publish(new DomainEvent.IncidentAcknowledged(
-                UUID.randomUUID().toString(), now, incidentId, technicianId));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId()));
         return saved;
     }
 
@@ -126,22 +167,23 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.START_INVESTIGATION, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.startInvestigation(technicianId, now);
+        incident.startInvestigation(actor.getId(), now);
         Incident saved = incidentRepository.save(incident);
 
         eventPublisher.publish(new DomainEvent.InvestigationStarted(
-                UUID.randomUUID().toString(), now, incidentId, technicianId));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId()));
         return saved;
     }
 
-    public Incident addNote(String incidentId, String authorId, String authorName, String noteText, boolean internalOnly) {
-        User actor = loadUser(authorId);
+    /** The note is signed with the author's own id and name, whatever the caller names them (ADR-037). */
+    public Incident addNote(String incidentId, String authorIdOrEmail, String noteText, boolean internalOnly) {
+        User actor = loadUser(authorIdOrEmail);
         Incident incident = loadIncident(incidentId);
         accessPolicy.enforceCanViewIncident(actor, incident, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
         String noteId = "NOTE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        incident.addNote(new InvestigationNote(noteId, authorId, authorName, noteText, now, internalOnly));
+        incident.addNote(new InvestigationNote(noteId, actor.getId(), actor.getName(), noteText, now, internalOnly));
         return incidentRepository.save(incident);
     }
 
@@ -151,11 +193,11 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.REQUEST_INFO, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.requestInfo(technicianId, message, now);
+        incident.requestInfo(actor.getId(), message, now);
         Incident saved = incidentRepository.save(incident);
 
         eventPublisher.publish(new DomainEvent.MoreInfoRequested(
-                UUID.randomUUID().toString(), now, incidentId, technicianId, message));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId(), message));
         return saved;
     }
 
@@ -165,7 +207,7 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.PROVIDE_INFO, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.provideInfo(employeeId, responseText, now);
+        incident.provideInfo(actor.getId(), responseText, now);
         return incidentRepository.save(incident);
     }
 
@@ -175,8 +217,16 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.RESOLVE, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.resolve(resolution, now);
+        SlaStatus previousSla = incident.getSlaTracker() != null ? incident.getSlaTracker().getStatus() : null;
+        // The resolver is the signed-in actor, whatever id or e-mail the caller put in the resolution (ADR-037)
+        Resolution signed = new Resolution(resolution.rootCause(), resolution.stepsTaken(), resolution.preventiveAction(),
+                resolution.confirmedCategory(), actor.getId(), resolution.resolvedAt());
+        incident.resolve(signed, now);
         Incident saved = incidentRepository.save(incident);
+        // The verdict is set here: a late resolution, or a late response now confirmed, must be announced once (ADR-030)
+        if (previousSla != null) {
+            slaService.announceTransition(saved, previousSla, now);
+        }
 
         // Free up technician capacity
         if (incident.getAssigneeId() != null) {
@@ -187,7 +237,7 @@ public class IncidentLifecycleService {
         }
 
         eventPublisher.publish(new DomainEvent.IncidentResolved(
-                UUID.randomUUID().toString(), now, incidentId, technicianId, resolution));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId(), signed));
         return saved;
     }
 
@@ -197,11 +247,11 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.VERIFY, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.verify(employeeId, now);
+        incident.verify(actor.getId(), now);
         Incident saved = incidentRepository.save(incident);
 
         eventPublisher.publish(new DomainEvent.ResolutionVerified(
-                UUID.randomUUID().toString(), now, incidentId, employeeId));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId()));
         return saved;
     }
 
@@ -211,7 +261,7 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.REJECT, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
-        incident.reject(employeeId, rejectionReason, now);
+        incident.reject(actor.getId(), rejectionReason, now);
         Incident saved = incidentRepository.save(incident);
 
         // Re-consume technician capacity if returning to active status
@@ -223,7 +273,7 @@ public class IncidentLifecycleService {
         }
 
         eventPublisher.publish(new DomainEvent.IncidentReopened(
-                UUID.randomUUID().toString(), now, incidentId, employeeId, rejectionReason, incident.getReopenCount()));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId(), rejectionReason, incident.getReopenCount()));
         return saved;
     }
 
@@ -239,11 +289,11 @@ public class IncidentLifecycleService {
                 technicianRepository.save(tech);
             });
         }
-        incident.close(actorId, feedback, now);
+        incident.close(actor.getId(), feedback, now);
         Incident saved = incidentRepository.save(incident);
 
         eventPublisher.publish(new DomainEvent.IncidentClosed(
-                UUID.randomUUID().toString(), now, incidentId, actorId, feedback));
+                UUID.randomUUID().toString(), now, incidentId, actor.getId(), feedback));
         return saved;
     }
 
@@ -253,12 +303,14 @@ public class IncidentLifecycleService {
         accessPolicy.enforceCanExecuteAction(actor, incident, IncidentAction.FLAG_WRONG_DOMAIN, resolveOwningTeamId(incident));
 
         Instant now = clock.instant();
+        // The slot belongs to the technician who holds the ticket; a team lead can flag it on his behalf (ADR-029).
+        String holderId = incident.getAssigneeId();
         incident.flagWrongDomain(actor.getId(), reason, now);
         incident.addExcludedTechnician(actor.getId());
         incident.setNeedsTriage(true);
         incidentRepository.save(incident);
 
-        technicianRepository.findById(actor.getId()).ifPresent(tech -> {
+        technicianRepository.findById(holderId != null ? holderId : actor.getId()).ifPresent(tech -> {
             tech.releaseIncident(incidentId);
             technicianRepository.save(tech);
         });
@@ -277,22 +329,33 @@ public class IncidentLifecycleService {
         return savedReq;
     }
 
+    /**
+     * The tickets a staff member may see in the team view (ADR-032): an administrator sees everything; a team lead the
+     * tickets of the categories the team handles (ADR-036: the category decides the team); a technician the tickets
+     * assigned to them and the unassigned tickets of the team. Every ticket passes the access policy, so a colleague's
+     * ticket and its notes stay out of the list.
+     */
     @Transactional(readOnly = true)
     public List<Incident> getTeamQueue(String actorIdOrEmail) {
         User actor = loadUser(actorIdOrEmail);
-        String teamId;
-        if (actor instanceof com.iitsm.domain.model.TeamLead tl) {
-            teamId = tl.getSupportTeamId();
-        } else if (actor instanceof Technician t) {
-            teamId = t.getSupportTeamId();
-        } else if (actor instanceof com.iitsm.domain.model.Administrator) {
+        if (actor instanceof com.iitsm.domain.model.Administrator) {
             return incidentRepository.findAll();
-        } else {
+        }
+        if (!(actor instanceof Technician member)) {
             throw new UnauthorizedOperationException("Only technicians, team leads and administrators can view team queues");
         }
+        String teamId = member.getSupportTeamId();
+        java.util.Set<com.iitsm.domain.model.IncidentCategory> teamCategories = teamId == null
+                ? java.util.Set.of()
+                : ticketRouter.categoriesHandledBy(teamId);
 
-        return incidentRepository.findAll().stream()
-                .filter(i -> Objects.equals(resolveOwningTeamId(i), teamId))
+        java.util.Map<String, Incident> candidates = new java.util.LinkedHashMap<>();
+        incidentRepository.findByCategoryIn(teamCategories).forEach(i -> candidates.put(i.getId(), i));
+        incidentRepository.findByAssigneeId(member.getId()).forEach(i -> candidates.putIfAbsent(i.getId(), i));
+
+        return candidates.values().stream()
+                .filter(i -> accessPolicy.canViewIncident(actor, i,
+                        teamCategories.contains(i.getCategory()) ? teamId : resolveOwningTeamId(i)))
                 .sorted(IncidentUrgencyOrdering.INSTANCE)
                 .collect(Collectors.toList());
     }
@@ -356,8 +419,9 @@ public class IncidentLifecycleService {
                 .orElseThrow(() -> new ValidationException("userId", "User not found with ID: " + userIdOrEmail));
     }
 
+    /** Accepts the plain ticket id or the staff display name (priority prefix), e.g. P2-FIN-2026-000142. */
     private Incident loadIncident(String incidentId) {
-        return incidentRepository.findById(incidentId)
+        return incidentRepository.findById(TicketDisplayName.canonicalId(incidentId))
                 .orElseThrow(() -> new ServiceNotFoundException("Incident not found: " + incidentId));
     }
 }

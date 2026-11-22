@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+// OOP (Polymorphism / Open-Closed): SmsSimulatorChannel is one NotificationChannel; the router sends through the interface and a new channel is just a new class.
 /**
  * Pattern: Adapter.
  * Simulated SMS channel implementation adhering to the NotificationChannel interface.
@@ -23,6 +24,7 @@ public class SmsSimulatorChannel implements NotificationChannel {
 
     public record SmsRecord(String recipient, String message) {}
 
+    // OOP (Method overriding): this channel's own way of delivering a notification.
     @Override
     public String getChannelName() {
         return CHANNEL_NAME;

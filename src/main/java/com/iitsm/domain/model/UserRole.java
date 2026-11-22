@@ -1,7 +1,7 @@
 package com.iitsm.domain.model;
 
 /**
- * OOP: Standard authorization roles in I-ITSM.
+ * OOP: Standard authorization roles in Swiftdesk.
  */
 public enum UserRole {
     ROLE_EMPLOYEE,

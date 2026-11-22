@@ -1,0 +1,21 @@
+warning: in the working copy of 'src/main/resources/static/app.js', LF will be replaced by CRLF the next time Git touches it
+ docs/DECISIONS.md                                  |  20 [32m++[m
+ scripts/live-checks/action_buttons_browser.py      |  12 [32m+[m[31m-[m
+ src/main/resources/static/app.js                   | 265 [32m++++++++++++++[m[31m-------[m
+ src/main/resources/static/index.html               |   4 [32m+[m[31m-[m
+ src/main/resources/static/styles.css               |  26 [32m++[m
+ .../java/com/iitsm/web/ActorNameMarkupTest.java    |   2 [32m+[m[31m-[m
+ .../iitsm/web/AssignmentExplanationMarkupTest.java |   2 [32m+[m[31m-[m
+ .../com/iitsm/web/EmployeePortalMarkupTest.java    |   2 [32m+[m[31m-[m
+ .../com/iitsm/web/FrontEndClosureMarkupTest.java   |   2 [32m+[m[31m-[m
+ src/test/java/com/iitsm/web/MfaMarkupTest.java     |   2 [32m+[m[31m-[m
+ .../com/iitsm/web/MultiSelectFilterMarkupTest.java |   2 [32m+[m[31m-[m
+ .../java/com/iitsm/web/RateLimitMarkupTest.java    |   2 [32m+[m[31m-[m
+ src/test/java/com/iitsm/web/RefreshMarkupTest.java |   2 [32m+[m[31m-[m
+ .../iitsm/web/StrategyComparisonMarkupTest.java    |   2 [32m+[m[31m-[m
+ .../iitsm/web/SuggestedResolutionMarkupTest.java   |   2 [32m+[m[31m-[m
+ .../com/iitsm/web/TechnicianPortalMarkupTest.java  |   6 [32m+[m[31m-[m
+ .../com/iitsm/web/TicketDisplayNameMarkupTest.java |   2 [32m+[m[31m-[m
+ .../java/com/iitsm/web/TriageCardMarkupTest.java   |   2 [32m+[m[31m-[m
+ .../java/com/iitsm/web/WriteGuardMarkupTest.java   |   2 [32m+[m[31m-[m
+ 19 files changed, 243 insertions(+), 116 deletions(-)

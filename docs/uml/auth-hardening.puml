@@ -1,0 +1,105 @@
+@startuml auth-hardening-login-mfa
+title Sign-in of an administrator with two-step verification (ADR-046, ADR-047, ADR-048)
+
+actor "Administrator" as Admin
+participant "Browser\n(app.js)" as UI
+participant "RateLimitFilter\n(per address and route)" as Rate
+participant "AuthController\n/api/auth" as Ctl
+participant "AuthSessionService" as Auth
+participant "UserService\nverifyCredentials\n(no transaction)" as Users
+participant "MfaService" as Mfa
+participant "TotpGenerator\n(domain, wall clock)" as Totp
+participant "RefreshTokenService" as Sessions
+database "users\nrefresh_tokens\nmfa_recovery_codes" as Db
+
+Admin -> UI : e-mail + password
+UI -> Rate : POST /api/auth/login
+alt bucket empty
+  Rate --> UI : 429 ERR_RATE_LIMITED + Retry-After\n(never reaches the login: no failure counted)
+else allowed
+  Rate -> Ctl : request
+  Ctl -> Auth : login(email, password)
+  Auth -> Users : verifyCredentials
+  Users -> Db : load user, BCrypt check, lock check
+  note right of Users
+    wrong password, unknown, locked or
+    deactivated: the same 401 "Invalid credentials".
+    With two-step verification the failure count is
+    NOT cleared at this step.
+  end note
+  Users --> Auth : user (mfaEnabled)
+  Auth --> Ctl : MfaRequired(challenge token, purpose=mfa, 5 min)
+  Ctl --> UI : {mfaRequired: true, mfaToken}\n(no access token, no refresh token)
+end
+
+Admin -> UI : 6-digit code (or recovery code)
+UI -> Rate : POST /api/auth/mfa/verify {mfaToken, code}
+Rate -> Ctl : request
+Ctl -> Auth : verifyMfa(mfaToken, code)
+Auth -> Auth : parseMfaChallenge\n(access tokens are not challenges)
+Auth -> Mfa : verifyChallenge(userId, code)
+Mfa -> Db : load user\nactive? not locked? enrolled?
+alt one-time code
+  Mfa -> Totp : verify(secret, code, wall clock, window +/-1,\nlastUsedStep)
+  Totp --> Mfa : accepted step, only if newer than the last
+  Mfa -> Db : store mfa_last_step (a code works once)
+else recovery code
+  Mfa -> Db : BCrypt check of the unused codes,\nconditional UPDATE used_at (works once)
+end
+alt refused
+  Mfa -> Db : count a failed attempt\n(5 failures lock the account 15 minutes)
+  Mfa --> UI : 401 ERR_INVALID_MFA_CODE (one message)
+else accepted
+  Mfa -> Db : clear the failure count
+  Auth -> Sessions : issueSession(user)
+  Sessions -> Db : new family, refresh token stored as SHA-256 only
+  Sessions --> UI : access token (15 min, sid) + refresh token (8 h)
+end
+@enduml
+
+@startuml auth-hardening-refresh
+title Silent renewal with rotation and replay detection (ADR-047)
+
+participant "Browser\n(app.js)" as UI
+participant "JwtAuthenticationFilter" as Filter
+participant "AuthController\nPOST /api/auth/refresh" as Ctl
+participant "RefreshTokenService\n(one transaction)" as Svc
+participant "RefreshTokenRotation\n(pure policy)" as Rot
+database "refresh_tokens" as Db
+
+UI -> Filter : GET /api/... with an expired access token
+Filter --> UI : 401
+note over UI
+  authorizedFetch: one shared refresh request
+  (single-flight) however many calls got a 401
+end note
+UI -> Ctl : {refreshToken}
+Ctl -> Svc : refresh(token)
+Svc -> Db : find by SHA-256 of the token
+Svc -> Rot : decide(token, wall clock now)
+alt ROTATE (valid)
+  Svc -> Db : user active, not locked, same token version?
+  Svc -> Db : UPDATE ... SET revoked ROTATED\nWHERE id = ? AND revoked_at IS NULL
+  alt claimed
+    Svc -> Db : store the next token, same family,\nsame absolute expiry; link replaced_by
+    Svc --> UI : new access token + new refresh token\n(the browser repeats the call once)
+  else lost the race (two refreshes of one token)
+    Svc -> Db : revoke the whole family
+    Svc --> UI : 401 ERR_INVALID_REFRESH_TOKEN
+  end
+else REUSED (already rotated: a replay)
+  Svc -> Db : revoke the whole family (REUSE_DETECTED)
+  Svc --> UI : 401 ERR_INVALID_REFRESH_TOKEN\n(the newest token and every access token\nof the session are dead at once)
+else EXPIRED or REVOKED
+  Svc --> UI : 401 ERR_INVALID_REFRESH_TOKEN
+end
+
+UI -> Filter : later call with an access token whose sid is revoked
+Filter -> Db : isFamilyActive(sid)?
+Filter --> UI : 401 "Session revoked or expired"
+note over Db
+  Sign-out, replay, reset of two-step verification and the
+  end of the 8 hours all work this way: revoking the family
+  kills its access tokens on their next request.
+end note
+@enduml

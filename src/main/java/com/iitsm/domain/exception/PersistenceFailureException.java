@@ -1,5 +1,6 @@
 package com.iitsm.domain.exception;
 
+// OOP (Inheritance, IS-A): PersistenceFailureException is a kind of IitsmException, so one central handler can catch it and map it to a stable error code.
 /**
  * OOP: Thrown when an optimistic lock conflict, concurrency collision, or storage failure occurs.
  */

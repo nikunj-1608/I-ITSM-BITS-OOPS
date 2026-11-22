@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,12 +43,20 @@ class SimulationControllerTest {
     private String adminToken;
     private String employeeToken;
 
-    @BeforeEach
-    void setUp() {
+    /**
+     * Seeds before the test transaction starts, so the seed is committed. Ticket intake assigns technicians in
+     * a separate transaction (TechnicianAssignmentService, REQUIRES_NEW) that cannot see uncommitted rows: seeded
+     * inside the test transaction, scenario S1 found no technician when this class ran first (Phase A, ADR-025).
+     */
+    @BeforeTransaction
+    void seedCommittedReferenceData() {
         if (userRepository.count() == 0) {
             companySeeder.seedCompanyData();
         }
+    }
 
+    @BeforeEach
+    void setUp() {
         User admin = userRepository.findById("ADMIN-SYS-01").orElseThrow();
         adminToken = tokenProvider.generateToken(admin);
 

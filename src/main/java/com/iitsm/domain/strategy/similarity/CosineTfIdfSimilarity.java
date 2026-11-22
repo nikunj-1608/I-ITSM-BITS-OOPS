@@ -4,6 +4,7 @@ import com.iitsm.domain.strategy.nlp.TfIdfVectorizer;
 import java.util.Map;
 import java.util.Objects;
 
+// OOP (Realization): the measure that is wired in production; JaccardSimilarity could replace it without changing callers.
 /**
  * Pattern: Strategy.
  * Calculates text similarity using TF-IDF vectorization and cosine dot product.

@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.Comparator;
 
+// OOP (Interface Comparator): a separate class defines the ordering, so Incident itself stays free of sorting rules.
 /**
  * Pattern: Strategy / Comparator.
  * Strict urgency ordering for technician queues.
@@ -13,8 +14,10 @@ public class IncidentUrgencyOrdering implements Comparator<Incident>, Serializab
 
     private static final long serialVersionUID = 1L;
 
+    // OOP (Singleton-like constant): the comparator holds no state, so one shared instance is safe.
     public static final IncidentUrgencyOrdering INSTANCE = new IncidentUrgencyOrdering();
 
+    // Collections: this order drives the PriorityQueue of unassigned tickets (most urgent first).
     @Override
     public int compare(Incident o1, Incident o2) {
         if (o1 == o2) return 0;

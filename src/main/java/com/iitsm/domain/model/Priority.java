@@ -1,5 +1,6 @@
 package com.iitsm.domain.model;
 
+// OOP (Enum): a fixed set of type-safe constants; an enum can carry fields and methods like a class.
 /**
  * OOP: Priority levels for incidents, ordered by urgency and impact.
  * Natural ordering ranks P1 (highest urgency) before P4 (lowest urgency).
@@ -32,6 +33,7 @@ public enum Priority {
         return minThresholdScore;
     }
 
+    // OOP (static factory method): converts a numeric score to the matching constant.
     /**
      * Resolves the Priority tier based on a normalized 0.0 - 1.0 composite score.
      */

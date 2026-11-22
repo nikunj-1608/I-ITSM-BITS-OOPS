@@ -3,6 +3,7 @@ package com.iitsm.web.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
+// OOP (Immutability): FeedbackRequest is a record, so it is a read-only data carrier with no setters.
 public record FeedbackRequest(
         @Min(value = 1, message = "Rating must be at least 1")
         @Max(value = 5, message = "Rating cannot exceed 5")

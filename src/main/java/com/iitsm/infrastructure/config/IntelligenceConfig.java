@@ -1,14 +1,20 @@
 package com.iitsm.infrastructure.config;
 
+import com.iitsm.domain.policy.RoutingPolicy;
 import com.iitsm.domain.strategy.assignment.AssignmentStrategyRegistry;
 import com.iitsm.domain.strategy.assignment.CandidateFilter;
+import com.iitsm.domain.strategy.assignment.ServiceExperienceSource;
+import com.iitsm.domain.strategy.assignment.WeightedCompositeStrategy;
 import com.iitsm.domain.strategy.classification.CompositeClassifier;
 import com.iitsm.domain.strategy.classification.KeywordClassifier;
 import com.iitsm.domain.strategy.classification.NaiveBayesClassifier;
 import com.iitsm.domain.strategy.classification.ServiceMatcher;
+import com.iitsm.domain.strategy.nlp.DomainVocabulary;
 import com.iitsm.domain.strategy.nlp.TfIdfVectorizer;
+import com.iitsm.domain.strategy.nlp.WordListDomainVocabulary;
 import com.iitsm.domain.strategy.priority.CompositePriorityCalculator;
 import com.iitsm.domain.strategy.similarity.CosineTfIdfSimilarity;
+import com.iitsm.domain.strategy.similarity.DuplicateMatchPolicy;
 import com.iitsm.domain.strategy.similarity.SimilarityMeasure;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -18,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -115,9 +122,44 @@ public class IntelligenceConfig {
         return new CandidateFilter();
     }
 
+    /** Which team owns a ticket: the one that handles its category (ADR-036). */
     @Bean
-    public AssignmentStrategyRegistry assignmentStrategyRegistry() {
-        return new AssignmentStrategyRegistry();
+    public RoutingPolicy routingPolicy() {
+        return new RoutingPolicy();
+    }
+
+    /**
+     * The registry of assignment strategies. The default strategy, WEIGHTED_COMPOSITE, gets the service-experience factor
+     * of ADR-044 (Phase L4) when {@code iitsm.assignment.service-experience-weight} is above 0: the three historic weights
+     * are scaled by {@code 1 - w} and the factor gets {@code w}; with 0 the strategy is exactly the historic one.
+     */
+    @Bean
+    public AssignmentStrategyRegistry assignmentStrategyRegistry(
+            ServiceExperienceSource serviceExperienceSource,
+            @Value("${iitsm.assignment.service-experience-weight:0.10}") double serviceExperienceWeight,
+            @Value("${iitsm.assignment.service-experience-full-score-tickets:5}") int fullScoreTickets) {
+        if (!(serviceExperienceWeight >= 0.0) || serviceExperienceWeight > WeightedCompositeStrategy.MAX_SERVICE_EXPERIENCE_WEIGHT) {
+            throw new IllegalArgumentException("iitsm.assignment.service-experience-weight must be from 0 to "
+                    + WeightedCompositeStrategy.MAX_SERVICE_EXPERIENCE_WEIGHT + " (was " + serviceExperienceWeight + ")");
+        }
+        log.info("Assignment: service-experience weight {} (full score at {} resolved tickets)", serviceExperienceWeight, fullScoreTickets);
+        return new AssignmentStrategyRegistry(WeightedCompositeStrategy.withServiceExperience(
+                serviceExperienceSource, serviceExperienceWeight, fullScoreTickets));
+    }
+
+    /** The technical words duplicate detection needs two tickets to share; frozen apart from the classifier (ADR-035). */
+    @Bean
+    public DomainVocabulary domainVocabulary() {
+        return WordListDomainVocabulary.duplicateVocabulary();
+    }
+
+    @Bean
+    public DuplicateMatchPolicy duplicateMatchPolicy(
+            SimilarityMeasure similarityMeasure,
+            DomainVocabulary domainVocabulary,
+            @Value("${iitsm.duplicates.similarity-threshold:0.30}") double similarityThreshold,
+            @Value("${iitsm.duplicates.min-shared-terms:1}") int minSharedTerms) {
+        return new DuplicateMatchPolicy(similarityMeasure, domainVocabulary, similarityThreshold, minSharedTerms);
     }
 
     @Bean
