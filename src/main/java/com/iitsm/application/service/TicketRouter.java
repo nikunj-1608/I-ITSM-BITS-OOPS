@@ -10,6 +10,7 @@ import com.iitsm.domain.repository.ItServiceRepository;
 import com.iitsm.domain.repository.SupportTeamRepository;
 import com.iitsm.domain.strategy.assignment.CandidateFilter;
 import com.iitsm.domain.strategy.assignment.RoutedCandidates;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -89,7 +90,16 @@ public class TicketRouter {
     /** The candidates of {@link #candidates(Incident, List)} with the pool they came from (ADR-044). */
     public RoutedCandidates route(Incident incident, List<Technician> available) {
         return route(incident.getCategory(), owningTeamId(incident).orElse(null), available,
-                incident.getExcludedTechnicianIds());
+                withReporter(incident.getExcludedTechnicianIds(), incident.getReporterId()));
+    }
+
+    /** A technician never works a ticket they raised themselves: the reporter is always excluded from the candidates. */
+    public static Set<String> withReporter(Set<String> excludedIds, String reporterId) {
+        Set<String> result = new HashSet<>(excludedIds == null ? Set.of() : excludedIds);
+        if (reporterId != null) {
+            result.add(reporterId);
+        }
+        return result;
     }
 
     /** The candidates of {@link #candidates(IncidentCategory, String, List, Set)} with the pool they came from. */
