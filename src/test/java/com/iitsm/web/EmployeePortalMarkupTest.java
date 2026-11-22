@@ -170,7 +170,7 @@ class EmployeePortalMarkupTest {
                 ".emp-track-step {", ".emp-kpi-bar {");
         String section = stylesCss.substring(stylesCss.indexOf("Employee portal (ADR-050)"));
         assertThat(section).contains("@media (max-width: 640px)").contains("@media (max-width: 1024px)");
-        assertThat(indexHtml).contains("/styles.css?v=5.5").contains("/app.js?v=5.5");
+        assertThat(indexHtml).contains("/styles.css?v=5.6").contains("/app.js?v=5.6");
     }
 
     @Test

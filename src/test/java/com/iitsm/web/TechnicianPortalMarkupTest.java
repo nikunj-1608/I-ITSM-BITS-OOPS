@@ -28,10 +28,20 @@ class TechnicianPortalMarkupTest {
 
     private static final String CSS_START = "/* Technician portal (tp-) */";
     private static final String CSS_END = "/* End Technician portal */";
+    /** The login page redesign owns these two regions; the hashes below still cover everything around them. */
+    private static final String LOGIN_CSS_START = "/* Login page (login-) */";
+    private static final String LOGIN_CSS_END = "/* End Login page */";
+    private static final String LOGIN_CARD_START = "<!-- Sign In Card -->";
+    private static final String LOGIN_CARD_END = "<!-- Self-Registration Card";
 
-    /** Recorded from the files before the rebuild began (versions in the asset URLs are normalised away). */
+    /**
+     * Recorded from the files before the rebuild began (versions in the asset URLs are normalised away). The index value
+     * was re-recorded when the sign-in card was excluded from it (login page redesign): the hash of the committed file
+     * with the card cut out (from its start to the registration card) is identical to the hash of the new file with the
+     * card cut out.
+     */
     private static final String INDEX_OUTSIDE_TECHNICIAN_SHA =
-            "701a138fec4b0968f33064eda1fca202d36755b8579bf9afcdaccdfcdd54f19b";
+            "baa2e138fea02007f5c7ad23c9e054d0fb3ea42cd832453c339ba870a529aece";
     private static final String CSS_OUTSIDE_TECHNICIAN_SHA =
             "e35d658cb9a1eef7b3b52db220174a1c475bf5f4844dddf6067600a481c8fe45";
     private static final String EMPLOYEE_JS_SHA =
@@ -77,6 +87,17 @@ class TechnicianPortalMarkupTest {
         String normalised = text.replaceAll("\\?v=\\d+(\\.\\d+)*", "?v=X");
         byte[] hash = MessageDigest.getInstance("SHA-256").digest(normalised.getBytes(StandardCharsets.UTF_8));
         return HexFormat.of().formatHex(hash);
+    }
+
+    /** Removes the text from {@code from} up to (not including) {@code to}, or through the end marker when asked. */
+    private static String withoutRegion(String text, String from, String to, boolean includeEnd) {
+        int start = text.indexOf(from);
+        if (start < 0) {
+            return text;
+        }
+        int end = text.indexOf(to, start);
+        assertThat(end).as("end of the region that starts with " + from).isGreaterThan(start);
+        return text.substring(0, start) + text.substring(includeEnd ? end + to.length() : end);
     }
 
     private static String cssBlock() {
@@ -276,21 +297,24 @@ class TechnicianPortalMarkupTest {
     }
 
     @Test
-    @DisplayName("index.html outside the Technician tab is unchanged (asset versions aside)")
+    @DisplayName("index.html outside the Technician tab and the sign-in card is unchanged (asset versions aside)")
     void restOfIndexUnchanged() throws Exception {
         String start = "<section id=\"console-technician\"";
         String end = "<section id=\"console-teamlead\"";
         String rest = indexHtml.substring(0, indexHtml.indexOf(start)) + indexHtml.substring(indexHtml.indexOf(end));
-        assertThat(sha(rest)).isEqualTo(INDEX_OUTSIDE_TECHNICIAN_SHA);
+        assertThat(sha(withoutRegion(rest, LOGIN_CARD_START, LOGIN_CARD_END, false)))
+                .isEqualTo(INDEX_OUTSIDE_TECHNICIAN_SHA);
     }
 
     @Test
-    @DisplayName("styles.css outside the Technician portal block is unchanged")
+    @DisplayName("styles.css outside the Technician portal and login page blocks is unchanged")
     void restOfStylesUnchanged() throws Exception {
-        int start = stylesCss.indexOf(CSS_START);
+        String withoutLogin = withoutRegion(stylesCss, LOGIN_CSS_START, LOGIN_CSS_END, true);
+        int start = withoutLogin.indexOf(CSS_START);
         String rest = start < 0
-                ? stylesCss
-                : stylesCss.substring(0, start) + stylesCss.substring(stylesCss.indexOf(CSS_END) + CSS_END.length());
+                ? withoutLogin
+                : withoutLogin.substring(0, start)
+                        + withoutLogin.substring(withoutLogin.indexOf(CSS_END) + CSS_END.length());
         assertThat(sha(rest.stripTrailing())).isEqualTo(CSS_OUTSIDE_TECHNICIAN_SHA);
     }
 

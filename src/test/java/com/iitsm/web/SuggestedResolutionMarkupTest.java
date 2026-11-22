@@ -133,6 +133,6 @@ class SuggestedResolutionMarkupTest {
         }
         String section = appJs.substring(appJs.indexOf("// 16. Suggested Resolutions"));
         assertThat(section).doesNotContainPattern("\\son[a-z]+=");
-        assertThat(indexHtml).contains("/styles.css?v=5.5").contains("/app.js?v=5.5");
+        assertThat(indexHtml).contains("/styles.css?v=5.6").contains("/app.js?v=5.6");
     }
 }

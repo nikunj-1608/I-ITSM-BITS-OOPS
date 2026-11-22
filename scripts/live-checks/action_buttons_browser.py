@@ -178,6 +178,13 @@ def tab(page, target):
     page.wait_for_timeout(700)
 
 
+def triage_card(page, ticket_id):
+    """The ticket's card in the administrator's triage queue (a plain card, not a technician table row)."""
+    locator = page.locator("#admin-triage-container > .card", has_text=ticket_id).first
+    locator.wait_for(timeout=15000)
+    return locator
+
+
 def card(page, container, ticket_id):
     """The ticket's group in the technician queue table (ADR-051), opened so that its action buttons are visible."""
     locator = page.locator("%s [data-ticket-card]" % container, has_text=ticket_id).first
@@ -251,7 +258,7 @@ def main():
         check(watch.count("POST", "/api/auth/login") - before == 1, "J1: two simultaneous sign-ins send ONE login request")
         page.wait_for_selector("#btn-logout", timeout=15000)
         sign_out(page)
-        page.click("#btn-toggle-register")
+        page.evaluate("""() => { document.getElementById('login-card').classList.add('hidden'); document.getElementById('register-card').classList.remove('hidden'); }""")  # the sign-in card has no Self-Register button (ADR-055)
         page.fill("#reg-name", "Double Submit")
         page.fill("#reg-email", "double.%s@nimbusfinserve.com" % uuid.uuid4().hex[:6])
         page.fill("#reg-password", PASSWORD)
@@ -400,7 +407,7 @@ def main():
         sign_in(page, base, ADMIN)
         tab(page, "console-admin")
         page.click("button.admin-subtab[data-subtarget=admin-triage-panel]")
-        b_card = card(page, "#admin-triage-container", b)
+        b_card = triage_card(page, b)
         check(re.search(r"P\d-" + re.escape(b), b_card.inner_text()) is not None,
               "J6: the triage card shows the staff ticket name (priority and id)")
         b_card.locator(".btn-triage-reject").click()
@@ -411,7 +418,7 @@ def main():
         if (api.detail(c) or {}).get("needsTriage"):
             page.click("#btn-refresh-triage") if page.locator("#btn-refresh-triage").count() else page.click(
                 "button.admin-subtab[data-subtarget=admin-triage-panel]")
-            card(page, "#admin-triage-container", c).locator(".btn-triage-resolve").click()
+            triage_card(page, c).locator(".btn-triage-resolve").click()
             submit_modal(page, "form-modal-reclassify", selects={"#modal-new-category": "NETWORK"})
             done = api.wait_for(c, lambda d: not d.get("needsTriage") and d["category"] == "NETWORK", "Reclassify: the ticket leaves triage")
             check(bool(done and not done.get("needsTriage")), "admin: Reclassify & Reassign took the ticket out of triage")

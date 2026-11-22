@@ -302,13 +302,10 @@ async function loadPublicConfig() {
   try {
     const config = await fetch('/api/public/config').then(r => r.json());
     STATE.demoMode = !!config.demoMode;
-    if (STATE.demoMode) {
-      document.getElementById('demo-accounts-container').classList.remove('hidden');
-      document.getElementById('persona-switcher-bar').classList.remove('hidden');
-    } else {
-      document.getElementById('demo-accounts-container').classList.add('hidden');
-      document.getElementById('persona-switcher-bar').classList.add('hidden');
-    }
+    // The sign-in card no longer lists demo accounts (login page redesign), so that container is optional
+    const demoAccounts = document.getElementById('demo-accounts-container');
+    if (demoAccounts) demoAccounts.classList.toggle('hidden', !STATE.demoMode);
+    document.getElementById('persona-switcher-bar').classList.toggle('hidden', !STATE.demoMode);
   } catch (err) {
     console.warn('Failed to load /api/public/config, defaulting demoMode to false');
   }
@@ -330,7 +327,18 @@ function checkExistingSession() {
   showAuthView();
 }
 
+// Show or hide the typed password on the sign-in card (the eye button); the password is always hidden again on sign-out
+function setPasswordVisible(visible) {
+  const input = document.getElementById('login-password');
+  const toggle = document.getElementById('btn-login-toggle-password');
+  if (!input || !toggle) return;
+  input.type = visible ? 'text' : 'password';
+  toggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+  toggle.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+}
+
 function showAuthView() {
+  setPasswordVisible(false);
   document.getElementById('auth-view').classList.remove('hidden');
   // Signing out after a registration must show the sign-in card, not the registration card that was open before
   document.getElementById('login-card').classList.remove('hidden');
@@ -2805,6 +2813,10 @@ function setupEventListeners() {
   if (emailInput) emailInput.addEventListener('input', clearLoginAlert);
   const pwdInput = document.getElementById('login-password');
   if (pwdInput) pwdInput.addEventListener('input', clearLoginAlert);
+  const pwdToggle = document.getElementById('btn-login-toggle-password');
+  if (pwdToggle && pwdInput) {
+    pwdToggle.addEventListener('click', () => setPasswordVisible(pwdInput.type === 'password'));
+  }
 
   // Register form
   const regForm = document.getElementById('form-register');
@@ -2877,7 +2889,9 @@ function setupEventListeners() {
   }
 
   // Toggle Login/Register
-  document.getElementById('btn-toggle-register').addEventListener('click', () => {
+  // The sign-in card has no Self-Register button since the login page redesign; keep the handler for any page that has one.
+  const registerToggle = document.getElementById('btn-toggle-register');
+  if (registerToggle) registerToggle.addEventListener('click', () => {
     clearLoginAlert();
     document.getElementById('login-card').classList.add('hidden');
     document.getElementById('register-card').classList.remove('hidden');
@@ -2887,16 +2901,6 @@ function setupEventListeners() {
     if (regAlert) regAlert.classList.add('hidden');
     document.getElementById('register-card').classList.add('hidden');
     document.getElementById('login-card').classList.remove('hidden');
-  });
-
-  // Demo pills in auth view
-  document.querySelectorAll('.demo-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      const email = pill.getAttribute('data-email');
-      document.getElementById('login-email').value = email;
-      document.getElementById('login-password').value = STATE.demoPassword;
-      loginUser(email, STATE.demoPassword);
-    });
   });
 
   // Persona chips in header bar
@@ -4124,6 +4128,7 @@ let securityDialogSeq = 0;
 
 function showMfaStep(challengeToken) {
   mfaChallengeToken = challengeToken;
+  setPasswordVisible(false);
   const loginForm = document.getElementById('form-login');
   const mfaForm = document.getElementById('form-mfa');
   if (!mfaForm) return;

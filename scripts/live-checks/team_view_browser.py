@@ -155,7 +155,7 @@ def main():
 
         # --- 4. registration with an external address
         page.goto(base + "/")
-        page.click("#btn-toggle-register")
+        page.evaluate("""() => { document.getElementById('login-card').classList.add('hidden'); document.getElementById('register-card').classList.remove('hidden'); }""")  # the sign-in card has no Self-Register button (ADR-055)
         page.fill("#reg-name", "Outsider")
         page.fill("#reg-email", "outsider.%s@gmail.com" % uuid.uuid4().hex[:6])
         page.fill("#reg-password", PASSWORD)

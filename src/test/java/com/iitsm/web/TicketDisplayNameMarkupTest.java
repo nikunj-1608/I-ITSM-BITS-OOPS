@@ -104,7 +104,7 @@ class TicketDisplayNameMarkupTest {
     @Test
     @DisplayName("Assets are cache-busted to 3.5 and remain CSP-safe and offline")
     void assetsAreCacheBustedAndSafe() {
-        assertThat(indexHtml).contains("/styles.css?v=5.5").contains("/app.js?v=5.5");
+        assertThat(indexHtml).contains("/styles.css?v=5.6").contains("/app.js?v=5.6");
         assertThat(indexHtml + appJs).doesNotContainPattern("\\son(click|change|submit|load|keydown|input)\\s*=");
         assertThat(indexHtml + stylesCss).doesNotContainPattern("https?://").doesNotContain("@import");
     }
