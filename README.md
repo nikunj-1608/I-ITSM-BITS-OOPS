@@ -130,7 +130,7 @@ Every demo account uses the password **`Password123!`**
 | IT manager | `manager@nimbusfinserve.com` |
 | Administrator | `admin@nimbusfinserve.com` |
 
-The demo company has 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians. More technician logins follow the same pattern, such as `tech.net2@` and `tech.desk1@`.
+The table above lists only a few accounts, just enough for a quick demo. We have created many more demo accounts, and they all use the same password. The demo company has 6 support teams (Network, Database & Storage, Application, Security, Cloud Platform, Service Desk), each with a team lead and 3 technicians. Every technician and team lead has their own login, and signing in with it takes you straight to that person's own technician console, for their own field. For example, `tech.sec1@nimbusfinserve.com` opens Carlos Mendez's console in the Security team. More technician logins follow the same pattern, such as `tech.net2@`, `tech.db1@`, `tech.desk1@` and `lead.sec@`.
 
 ---
 
