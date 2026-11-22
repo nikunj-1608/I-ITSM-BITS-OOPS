@@ -36,8 +36,5 @@ Thumbs.db
 # Environment Secrets
 .env
 
-<<<<<<< HEAD
-=======
 # Assistant project instructions (kept locally, not part of the repository)
->>>>>>> bug-fixes
 CLAUDE.md
