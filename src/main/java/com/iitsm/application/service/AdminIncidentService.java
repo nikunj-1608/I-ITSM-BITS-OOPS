@@ -222,7 +222,8 @@ public class AdminIncidentService {
         incident.clearExcludedTechnicians();
         incident.reclassify(newCategory, (service != null) ? service.getId() : serviceId, decision, slaPolicy, now);
         Optional<String> reroutedTo = rerouteToOwningTeam(incident, admin.getId(), owningTeamId,
-                ticketRouter.route(newCategory, owningTeamId, available, Collections.emptySet()), now);
+                ticketRouter.route(newCategory, owningTeamId, available,
+                        TicketRouter.withReporter(Collections.emptySet(), incident.getReporterId())), now);
         approvePendingReassignments(incidentId, admin, now);
         Incident saved = incidentRepository.save(incident);
 
